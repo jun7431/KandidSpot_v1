@@ -13,7 +13,16 @@
 <body>
 
 <!-- ============== ONBOARDING ============== -->
-<div class="onboarding active" id="onboarding">
+<div class="onboarding active" id="onboarding" data-stage="required">
+  <!-- Desktop-only ambient floats, hidden on mobile via CSS -->
+  <div class="ks-floats" aria-hidden="true">
+    <span class="ks-float ks-float-1">☕</span>
+    <span class="ks-float ks-float-2">🥢</span>
+    <span class="ks-float ks-float-3">🍷</span>
+    <span class="ks-float ks-float-4">🌳</span>
+    <span class="ks-float ks-float-5">📷</span>
+  </div>
+
   <header class="ob-header">
     <div class="ob-brand">
       <span class="ob-brand-mark"><span class="ob-brand-dot"></span></span>
@@ -25,13 +34,16 @@
         <div class="ob-step" data-step="2"></div>
         <div class="ob-step" data-step="3"></div>
       </div>
-      <div class="ob-progress-label">Step <span id="ob-current">1</span> of 3</div>
+      <div class="ob-progress-label">
+        <span data-progress-required>Step <span id="ob-current">1</span> of 3</span>
+        <span data-progress-optional hidden>Customizing · <span id="ob-current-opt">1</span> of 2 · optional</span>
+      </div>
     </div>
   </header>
 
   <main class="ob-stage">
 
-    <!-- Step 1: Area -->
+    <!-- Step 1: Area + editorial landing -->
     <section class="ob-screen ob-screen-intro active" data-step="1">
       <div class="ks-hero">
         <span class="ks-eyebrow">
@@ -39,11 +51,13 @@
           Seoul · curated by locals
         </span>
         <h1 class="ks-headline">
-          Find your <span class="ks-headline-accent">local spot</span>.
+          One <span class="ks-headline-accent">local route</span>.<br />
+          Tasteful. Timed right.
         </h1>
         <p class="ks-lead">
-          Pick an area, your time, your mood. Kandid Spot gives you one route
-          worth doing — no top-10 lists, no decision fatigue.
+          Kandid Spot is a local route curator for Seoul. Tell us where you are,
+          how much time you have, and what feels right — and we hand back one
+          route worth walking. No top-10 lists, no decision fatigue.
         </p>
         <ol class="ks-flow" aria-label="How it works">
           <li><span class="ks-flow-num">1</span><span class="ks-flow-label">Area</span></li>
@@ -52,11 +66,12 @@
           <li class="ks-flow-arrow" aria-hidden="true">→</li>
           <li><span class="ks-flow-num">3</span><span class="ks-flow-label">Mood</span></li>
           <li class="ks-flow-arrow" aria-hidden="true">→</li>
-          <li class="ks-flow-result"><span class="ks-flow-label">Your spot</span></li>
+          <li class="ks-flow-result"><span class="ks-flow-label">Your route</span></li>
         </ol>
       </div>
 
       <div class="ks-step-label">Step 1 · Where are you now?</div>
+      <p class="ks-step-helper">Pick the neighborhood to anchor your route. You can tune it later.</p>
 
       <div class="ob-options ob-options-area" data-group="area">
         <button class="ob-option" data-value="Myeongdong / Euljiro" data-internal-value="myeongdong_euljiro">
@@ -95,6 +110,13 @@
           <span class="ob-option-sub">Use my current location</span>
         </button>
       </div>
+
+      <label class="ob-context-field">
+        <span class="ob-context-label">Anything we should know? <em>optional</em></span>
+        <input type="text" data-context-input placeholder="e.g. arriving by bus, with kids, want quiet streets…" autocomplete="off" />
+        <span class="ob-context-hint">Free-text context — helps us pick the right feel.</span>
+      </label>
+
       <div class="ob-actions">
         <button class="ob-back" disabled>Back</button>
         <button class="ob-next" disabled>Next →</button>
@@ -104,7 +126,7 @@
     <!-- Step 2: Time -->
     <section class="ob-screen" data-step="2">
       <h1 class="ob-q-h1">How much time do you have?</h1>
-      <p class="ob-q-sub">Kandid Spot keeps the route realistic for your available time.</p>
+      <p class="ob-q-sub">We keep the route realistic for the window you've got.</p>
       <div class="ob-options ob-options-time" data-group="time">
         <button class="ob-option" data-value="30–60 min" data-internal-value="time_30_60">
           <span class="ob-emoji">⚡</span>
@@ -133,10 +155,10 @@
       </div>
     </section>
 
-    <!-- Step 3: Mood -->
+    <!-- Step 3: Mood — last required step -->
     <section class="ob-screen" data-step="3">
-      <h1 class="ob-q-h1">What kind of route do you want?</h1>
-      <p class="ob-q-sub">Choose the mood. Kandid Spot will handle the route.</p>
+      <h1 class="ob-q-h1">What kind of route fits right now?</h1>
+      <p class="ob-q-sub">Pick the mood. We'll handle the order, the timing, and the picks.</p>
       <div class="ob-options ob-options-mood" data-group="mood">
         <button class="ob-option" data-value="Local food" data-internal-value="local_food">
           <span class="ob-emoji">🍜</span>
@@ -169,9 +191,111 @@
           <span class="ob-option-sub">Parks, lanes, photo spots</span>
         </button>
       </div>
-      <div class="ob-actions">
+
+      <div class="ob-actions ob-actions-dual">
         <button class="ob-back">Back</button>
-        <button class="ob-next" disabled>Build my Kandid Spot route →</button>
+        <div class="ob-actions-right">
+          <button class="ob-customize-more" type="button" disabled>Customize more</button>
+          <button class="ob-next ob-show-route" type="button" disabled>Show my route →</button>
+        </div>
+      </div>
+      <p class="ob-actions-note">You're done with the required steps. Customizing is optional.</p>
+    </section>
+
+    <!-- Step 4: Optional · Itinerary shape -->
+    <section class="ob-screen ob-screen-optional" data-step="4">
+      <span class="ks-optional-tag">Optional · 1 of 2 · Itinerary shape</span>
+      <h1 class="ob-q-h1">How should the route flow?</h1>
+      <p class="ob-q-sub">Pick a feel for the order of stops. Skip and we'll choose for you.</p>
+
+      <div class="ob-shapes" data-group="shape">
+        <button class="ob-shape" type="button" data-value="slow_build">
+          <span class="ob-shape-name">The Slow Build</span>
+          <span class="ob-shape-seq">Cafe → Walk → Local food → Drinks</span>
+          <span class="ob-shape-desc">Ease in over coffee, finish loud. Best when you've got time to settle.</span>
+        </button>
+        <button class="ob-shape" type="button" data-value="food_first">
+          <span class="ob-shape-name">Food First</span>
+          <span class="ob-shape-seq">Local food → Walk → Cafe → Drinks</span>
+          <span class="ob-shape-desc">Anchor the route on the meal you came for; the rest unfolds.</span>
+        </button>
+        <button class="ob-shape" type="button" data-value="wander_end_loud">
+          <span class="ob-shape-name">Wander & End Loud</span>
+          <span class="ob-shape-seq">Walk → Cafe → Local food → Drinks</span>
+          <span class="ob-shape-desc">Walk the neighborhood first; food and drinks come at the end.</span>
+        </button>
+      </div>
+
+      <div class="ob-actions ob-actions-dual">
+        <button class="ob-back">Back</button>
+        <div class="ob-actions-right">
+          <button class="ob-skip" type="button" data-skip-to="build">Skip</button>
+          <button class="ob-next" type="button">Continue →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 5: Optional · Place refinement -->
+    <section class="ob-screen ob-screen-optional" data-step="5">
+      <span class="ks-optional-tag">Optional · 2 of 2 · Place preferences</span>
+      <h1 class="ob-q-h1">Lean it your way.</h1>
+      <p class="ob-q-sub">Pin a stop type to make sure it's in. Heart what you'd prefer. Skip is fine — we'll still build the route.</p>
+
+      <ul class="ob-refine-anchors" data-group="refine">
+        <li class="ob-refine-anchor">
+          <div class="ob-refine-body">
+            <span class="ob-refine-role">Anchor meal</span>
+            <span class="ob-refine-hint">Picked from your area + mood</span>
+          </div>
+          <div class="ob-refine-prefs" data-anchor="meal" role="group" aria-label="Preference for anchor meal">
+            <button type="button" class="ob-pref active" data-pref="neutral" aria-pressed="true">No pref</button>
+            <button type="button" class="ob-pref" data-pref="heart" aria-pressed="false">♥ Prefer</button>
+            <button type="button" class="ob-pref" data-pref="pin" aria-pressed="false">📌 Must include</button>
+          </div>
+        </li>
+        <li class="ob-refine-anchor">
+          <div class="ob-refine-body">
+            <span class="ob-refine-role">Coffee / dessert</span>
+            <span class="ob-refine-hint">Mid-route pause</span>
+          </div>
+          <div class="ob-refine-prefs" data-anchor="cafe" role="group" aria-label="Preference for cafe stop">
+            <button type="button" class="ob-pref active" data-pref="neutral" aria-pressed="true">No pref</button>
+            <button type="button" class="ob-pref" data-pref="heart" aria-pressed="false">♥ Prefer</button>
+            <button type="button" class="ob-pref" data-pref="pin" aria-pressed="false">📌 Must include</button>
+          </div>
+        </li>
+        <li class="ob-refine-anchor">
+          <div class="ob-refine-body">
+            <span class="ob-refine-role">Walk / view</span>
+            <span class="ob-refine-hint">Streets, lanes, or a small park</span>
+          </div>
+          <div class="ob-refine-prefs" data-anchor="walk" role="group" aria-label="Preference for walk stop">
+            <button type="button" class="ob-pref active" data-pref="neutral" aria-pressed="true">No pref</button>
+            <button type="button" class="ob-pref" data-pref="heart" aria-pressed="false">♥ Prefer</button>
+            <button type="button" class="ob-pref" data-pref="pin" aria-pressed="false">📌 Must include</button>
+          </div>
+        </li>
+        <li class="ob-refine-anchor">
+          <div class="ob-refine-body">
+            <span class="ob-refine-role">Ending</span>
+            <span class="ob-refine-hint">A drink, dessert, or quiet close</span>
+          </div>
+          <div class="ob-refine-prefs" data-anchor="end" role="group" aria-label="Preference for ending stop">
+            <button type="button" class="ob-pref active" data-pref="neutral" aria-pressed="true">No pref</button>
+            <button type="button" class="ob-pref" data-pref="heart" aria-pressed="false">♥ Prefer</button>
+            <button type="button" class="ob-pref" data-pref="pin" aria-pressed="false">📌 Must include</button>
+          </div>
+        </li>
+      </ul>
+
+      <p class="ob-refine-foot">We pick the actual places — you're just telling us what to lean into.</p>
+
+      <div class="ob-actions ob-actions-dual">
+        <button class="ob-back">Back</button>
+        <div class="ob-actions-right">
+          <button class="ob-skip" type="button" data-skip-to="build">Skip</button>
+          <button class="ob-next" type="button">Build my route →</button>
+        </div>
       </div>
     </section>
 
