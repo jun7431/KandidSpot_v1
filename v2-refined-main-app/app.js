@@ -3076,6 +3076,32 @@ function getDirectLegPath(leg) {
   return [leg.start, leg.end];
 }
 
+function getRouteLegRoutingMode(leg, maxWalkMinutes) {
+  const explicitMode = String(leg.toStop?.legSuggestedMode || '').trim();
+  if (explicitMode === 'walk') {
+    return { mode: 'walk', reason: 'explicit_walk_mode' };
+  }
+  if (explicitMode) {
+    return { mode: 'nonwalking', reason: `explicit_${explicitMode}` };
+  }
+
+  const routeWalkMinutes = Number(leg.toStop?.legWalkMinutes ?? leg.toStop?.walk);
+  if (Number.isFinite(routeWalkMinutes) && routeWalkMinutes > 0) {
+    return { mode: 'walk', reason: 'route_walk_minutes' };
+  }
+
+  const mobilityLabel = String(leg.toStop?.legMobilityLabel || '').trim().toLowerCase();
+  if (mobilityLabel.startsWith('walk')) {
+    return { mode: 'walk', reason: 'route_walk_label' };
+  }
+
+  const mobility = classifyLegMobility(leg.start, leg.end, maxWalkMinutes);
+  return {
+    mode: mobility.suggestedMode === 'walk' ? 'walk' : 'nonwalking',
+    reason: 'distance_classification',
+  };
+}
+
 function getTmapPedestrianRoute(start, end) {
   const cacheKey = getTmapPedestrianKey(start, end);
   if (routeGeometryState.tmapCache.has(cacheKey)) {
@@ -3246,6 +3272,7 @@ async function buildMixedRouteGeometry() {
     tmapWalkLegs: 0,
     naverDrivingLegs: 0,
     fallbackLegs: 0,
+    legs: [],
   };
   let labelsChanged = false;
 
@@ -3253,7 +3280,8 @@ async function buildMixedRouteGeometry() {
     let segmentPath = null;
     let isFallback = false;
     let source = '';
-    const isWalkingLeg = leg.toStop.legSuggestedMode === 'walk';
+    const routingMode = getRouteLegRoutingMode(leg, maxWalkMinutes);
+    const isWalkingLeg = routingMode.mode === 'walk';
 
     if (isWalkingLeg) {
       const tmapRoute = await getTmapPedestrianRoute(leg.start, leg.end);
@@ -3285,6 +3313,16 @@ async function buildMixedRouteGeometry() {
     }
 
     appendRouteSegment(path, segmentPath);
+    summary.legs.push({
+      index: leg.index,
+      from: leg.fromStop?.name || leg.start.name,
+      to: leg.toStop?.name || leg.end.name,
+      routingMode: routingMode.mode,
+      routingReason: routingMode.reason,
+      source,
+      fallback: isFallback,
+      points: Array.isArray(segmentPath) ? segmentPath.length : 0,
+    });
     segments.push({
       index: leg.index,
       fromStop: leg.fromStop,
@@ -3292,8 +3330,11 @@ async function buildMixedRouteGeometry() {
       path: segmentPath,
       isFallback,
       source,
+      routingMode: routingMode.mode,
     });
   }
+
+  console.log('[Kandid Spot] Internal route geometry sources', summary);
 
   return {
     path,
