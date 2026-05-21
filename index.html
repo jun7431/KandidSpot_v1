@@ -5,244 +5,370 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Kandid Spot — One local route, ready to walk</title>
 <meta name="description" content="Pick your area, time, and mood. Kandid Spot gives you one route from curated local spots in Seoul." />
-<meta name="theme-color" content="#FBF7EF" />
+<meta name="theme-color" content="#F4F1EA" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --bg: #FBF7EF;
-    --card: #FFFFFF;
-    --primary: #2563EB;
-    --primary-dark: #1D4ED8;
-    --primary-soft: #EFF6FF;
-    --mint: #14B8A6;
-    --mint-soft: #CCFBF1;
-    --text: #111827;
-    --text-soft: #1F2937;
-    --gray: #6B7280;
-    --gray-light: #9CA3AF;
-    --border: #E5E7EB;
-    --shadow-pop: 0 16px 36px -10px rgba(37, 99, 235, 0.35);
-    --shadow-xs: 0 1px 2px rgba(17, 24, 39, 0.04);
+    --paper: #FFFFFF;
+    --bg: #F4F1EA;
+    --ink: #0E0E0C;
+    --muted: #6B6962;
+    --rule: #1A1A18;
+    --blue: #1B3FE0;
+    --pink: #FF3B86;
+    --yellow: #FFD23D;
+    --mint: #6CE6BA;
+    --sans: "Space Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --serif: "Instrument Serif", "Times New Roman", serif;
+    --mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
   }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
-      "Malgun Gothic", "Noto Sans KR", sans-serif;
-    background: var(--bg);
-    background-image:
-      radial-gradient(circle at 88% 10%, rgba(20, 184, 166, 0.10), transparent 55%),
-      radial-gradient(circle at 8% 92%, rgba(37, 99, 235, 0.08), transparent 55%);
-    color: var(--text);
-    -webkit-font-smoothing: antialiased;
-    line-height: 1.5;
-    letter-spacing: -0.005em;
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
-  }
-  a { color: inherit; text-decoration: none; }
 
-  .start {
-    flex: 1;
-    width: 100%;
-    max-width: 520px;
-    margin: 0 auto;
-    padding: 56px 24px 40px;
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: inherit; text-decoration: none; }
+  a:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+
+  .sheet {
+    min-height: calc(100vh - 48px);
+    max-width: 1380px;
+    margin: 24px auto;
+    background: var(--paper);
+    border: 1.5px solid var(--rule);
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.28);
+  }
+
+  .topbar {
+    height: 72px;
+    padding: 0 28px;
+    border-bottom: 1.5px solid var(--rule);
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    text-align: center;
+    justify-content: space-between;
+    gap: 18px;
   }
 
   .brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 36px;
-  }
-  .brand-mark {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    background: var(--primary-soft);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: var(--shadow-xs);
-  }
-  .brand-mark::after {
-    content: "";
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--primary);
-  }
-  .brand-name {
-    font-size: 19px;
-    font-weight: 800;
+    color: var(--blue);
+    font-size: 22px;
+    font-weight: 700;
     letter-spacing: -0.02em;
   }
 
-  .eyebrow {
+  .tag {
+    padding: 5px 9px;
+    background: var(--yellow);
+    border: 1.5px solid var(--rule);
+    border-radius: 7px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+  }
+
+  .nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .nav-pill {
+    padding: 8px 14px;
+    border: 1.5px solid var(--rule);
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: lowercase;
+  }
+
+  .nav-dot {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: var(--ink);
+    color: var(--paper);
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    font-family: var(--mono);
     font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--text-soft);
-    background: var(--card);
-    border: 1px solid var(--border);
-    padding: 6px 12px 6px 10px;
-    border-radius: 999px;
-    box-shadow: var(--shadow-xs);
-    margin-bottom: 22px;
-  }
-  .eyebrow-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--mint);
-    box-shadow: 0 0 0 4px var(--mint-soft);
+    text-transform: lowercase;
   }
 
-  h1.headline {
-    font-size: 40px;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1.05;
-    color: var(--text);
-    max-width: 14ch;
+  .hero {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    min-height: calc(100vh - 122px);
   }
-  h1.headline .accent {
-    background: linear-gradient(120deg, var(--primary) 0%, var(--mint) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+
+  .hero-copy {
+    padding: 52px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 36px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+  }
+
+  .eyebrow::after {
+    content: "";
+    width: 56px;
+    border-top: 1.5px solid var(--rule);
+  }
+
+  h1 {
+    max-width: 760px;
+    margin: 0;
+    font-size: clamp(64px, 8vw, 118px);
+    font-weight: 700;
+    letter-spacing: -0.055em;
+    line-height: 0.92;
+  }
+
+  .serif {
+    color: var(--ink);
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.025em;
+  }
+
+  .blue { color: var(--blue); }
 
   .lead {
-    margin-top: 16px;
-    font-size: 15.5px;
-    color: var(--gray);
+    max-width: 520px;
+    margin: 32px 0 0;
+    color: var(--ink);
+    font-size: 17px;
     line-height: 1.55;
-    max-width: 38ch;
+  }
+
+  .lead em {
+    color: var(--blue);
+    font-family: var(--serif);
+    font-size: 1.1em;
+  }
+
+  .cta-row {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-top: 40px;
   }
 
   .cta {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-top: 32px;
-    padding: 16px 32px;
-    min-width: 220px;
-    background: var(--primary);
-    color: white;
-    font-size: 16px;
-    font-weight: 700;
-    border-radius: 14px;
-    border: none;
-    box-shadow: var(--shadow-pop);
-    transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    gap: 16px;
+    padding: 16px 20px 16px 26px;
+    background: var(--ink);
+    border: 1.5px solid var(--rule);
+    border-radius: 999px;
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: lowercase;
   }
+
   .cta:hover {
-    background: var(--primary-dark);
-    transform: translateY(-1px);
-    box-shadow: 0 20px 40px -10px rgba(37, 99, 235, 0.45);
-  }
-  .cta:active { transform: translateY(0); }
-  .cta:focus-visible {
-    outline: 3px solid rgba(37, 99, 235, 0.35);
-    outline-offset: 2px;
-  }
-  .cta-arrow { font-size: 17px; line-height: 1; }
-
-  .trust {
-    margin-top: 22px;
-    font-size: 12.5px;
-    color: var(--gray);
-    letter-spacing: 0.01em;
-  }
-  .trust .sep {
-    display: inline-block;
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: var(--gray-light);
-    vertical-align: middle;
-    margin: 0 8px 2px;
+    background: var(--blue);
   }
 
-  .prototype-note {
-    margin-top: 14px;
-    font-size: 11.5px;
-    color: var(--gray-light);
-    font-weight: 500;
+  .cta-mark {
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    background: var(--paper);
+    color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .foot {
-    flex-shrink: 0;
-    text-align: center;
-    padding: 20px 24px 28px;
+  .how {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    text-transform: lowercase;
+  }
+
+  .collage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-left: 1.5px solid var(--rule);
+  }
+
+  .tile {
+    position: relative;
+    min-height: 220px;
+    border-bottom: 1.5px solid var(--rule);
+    border-right: 1.5px solid var(--rule);
+    overflow: hidden;
+  }
+
+  .tile:nth-child(2n) { border-right: 0; }
+  .tile:nth-last-child(-n + 2) { border-bottom: 0; }
+
+  .tile::before {
+    content: attr(data-num);
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    z-index: 1;
+    padding: 4px 8px;
+    background: var(--paper);
+    border: 1.5px solid var(--rule);
+    border-radius: 5px;
+    font-family: var(--mono);
     font-size: 11px;
-    color: var(--gray-light);
-    letter-spacing: 0.04em;
+    font-weight: 600;
   }
 
-  @media (max-width: 480px) {
-    .start { padding: 40px 20px 28px; }
-    .brand { margin-bottom: 28px; }
-    h1.headline { font-size: 32px; }
-    .lead { font-size: 14.5px; margin-top: 12px; }
-    .cta { width: 100%; min-width: 0; padding: 15px 24px; }
-    .trust { font-size: 12px; }
+  .tile-label {
+    position: absolute;
+    left: 28px;
+    bottom: 28px;
+    max-width: 150px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.25;
+    letter-spacing: 0.05em;
+    text-transform: lowercase;
+  }
+
+  .stripe-pink {
+    background:
+      repeating-linear-gradient(45deg, rgba(255, 59, 134, 0.18) 0 9px, rgba(255, 59, 134, 0.38) 9px 18px),
+      #FFE4EE;
+  }
+
+  .blue-tile {
+    background: var(--blue);
+    color: var(--paper);
+  }
+
+  .stripe-yellow {
+    background:
+      repeating-linear-gradient(45deg, rgba(255, 210, 61, 0.42) 0 9px, rgba(255, 210, 61, 0.68) 9px 18px),
+      #FFF1A6;
+  }
+
+  .black-tile {
+    background: var(--ink);
+    color: var(--paper);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .xmark {
+    font-size: 66px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .caption {
+    margin-top: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 900px) {
+    .sheet { margin: 0; min-height: 100vh; border: 0; border-radius: 0; }
+    .hero { grid-template-columns: 1fr; }
+    .collage { min-height: 420px; border-left: 0; border-top: 1.5px solid var(--rule); }
+    .hero-copy { padding: 44px 28px; }
+    h1 { font-size: clamp(56px, 15vw, 92px); }
+  }
+
+  @media (max-width: 560px) {
+    .topbar { height: auto; padding: 16px; align-items: flex-start; }
+    .brand { font-size: 19px; }
+    .tag, .nav-pill { display: none; }
+    .hero-copy { padding: 36px 20px; }
+    .lead { font-size: 15px; }
+    .cta-row { align-items: stretch; flex-direction: column; gap: 14px; }
+    .cta { justify-content: space-between; width: 100%; }
+    .collage { grid-template-columns: 1fr; }
+    .tile { min-height: 170px; border-right: 0; }
+    .tile:nth-last-child(-n + 2) { border-bottom: 1.5px solid var(--rule); }
+    .tile:last-child { border-bottom: 0; }
   }
 </style>
 </head>
 <body>
 
-<main class="start">
-  <a class="brand" href="./v2-refined-main-app/index.html" aria-label="Kandid Spot home">
-    <span class="brand-mark" aria-hidden="true"></span>
-    <span class="brand-name">Kandid Spot</span>
-  </a>
+<main class="sheet">
+  <header class="topbar">
+    <a class="brand" href="./v2-refined-main-app/index.html" aria-label="Kandid Spot home">[kandid.spot]</a>
+    <span class="tag">SEOUL · V2026</span>
+    <nav class="nav" aria-label="Prototype navigation">
+      <a class="nav-pill" href="./v2-refined-main-app/index.html">saved</a>
+      <span class="nav-dot" aria-hidden="true">jk</span>
+    </nav>
+  </header>
 
-  <span class="eyebrow">
-    <span class="eyebrow-dot" aria-hidden="true"></span>
-    Seoul · curated by locals
-  </span>
+  <section class="hero">
+    <div class="hero-copy">
+      <div class="eyebrow">Kandid Spot · Vol. 01 · Seoul</div>
+      <h1>
+        One <span class="serif">candid</span><br />
+        local <span class="blue">route</span>,<br />
+        not a top-ten list.
+      </h1>
+      <p class="lead">
+        Tell us where you are, how much time you've got, and what feels right.
+        We hand back <em>one</em> route worth walking.
+      </p>
+      <div class="cta-row">
+        <a class="cta" href="./v2-refined-main-app/index.html" data-cta="start">
+          start the route <span class="cta-mark" aria-hidden="true">→</span>
+        </a>
+        <span class="how">area · time · mood · your route</span>
+      </div>
+    </div>
 
-  <h1 class="headline">
-    One <span class="accent">local route</span>,<br />
-    ready to walk.
-  </h1>
-
-  <p class="lead">
-    Pick your area, time, and mood. Get one route from curated local spots —
-    no top-10 lists, no decision fatigue.
-  </p>
-
-  <a class="cta" href="./v2-refined-main-app/index.html" data-cta="start">
-    Start <span class="cta-arrow" aria-hidden="true">→</span>
-  </a>
-
-  <p class="trust">
-    Seoul
-    <span class="sep" aria-hidden="true"></span>
-    curated spots
-    <span class="sep" aria-hidden="true"></span>
-    no endless lists
-  </p>
-
-  <p class="prototype-note">No account needed for the prototype</p>
+    <div class="collage" aria-hidden="true">
+      <div class="tile stripe-pink" data-num="01"><span class="tile-label">backstreet meal</span></div>
+      <div class="tile blue-tile" data-num="02"><span class="tile-label">walking</span></div>
+      <div class="tile stripe-yellow" data-num="03"><span class="tile-label">small cafe</span></div>
+      <div class="tile black-tile" data-num="04">
+        <div>
+          <div class="xmark">×</div>
+          <div class="caption">candid / not curated</div>
+        </div>
+      </div>
+    </div>
+  </section>
 </main>
-
-<footer class="foot">Made in Seoul · early access</footer>
 
 </body>
 </html>
