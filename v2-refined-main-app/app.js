@@ -1036,8 +1036,9 @@ function estimateWalkMinutesFromDistanceMeters(distanceMeters) {
   return Math.max(1, Math.round(distanceMeters / WALKING_SPEED_M_PER_MIN));
 }
 
-function getMaxWalkMinutesForRefinement(refinementKey) {
-  return refinementKey === 'walk' ? LESS_WALKING_MAX_WALK_MINUTES : DEFAULT_MAX_WALK_MINUTES;
+function getMaxWalkMinutesForRefinement(refinementInput) {
+  const keys = normalizeRefinementKeys(refinementInput);
+  return keys.includes('walk') ? LESS_WALKING_MAX_WALK_MINUTES : DEFAULT_MAX_WALK_MINUTES;
 }
 
 function updateRouteLoadingMessage(message) {
@@ -1142,9 +1143,10 @@ function getMobilityScore(place, context) {
   }
 
   const overageMinutes = walkMinutes - maxWalkMinutes;
-  const penaltyMultiplier = context.refinementKey === 'walk' ? 9 : 4.5;
+  const walkRefined = (context.refinementKeys || []).includes('walk');
+  const penaltyMultiplier = walkRefined ? 9 : 4.5;
   const longModePenalty = mobility.suggestedMode === 'transit_taxi_or_rental_car' ? 20 : 0;
-  const maxPenalty = context.refinementKey === 'walk' ? 180 : 120;
+  const maxPenalty = walkRefined ? 180 : 120;
   return -Math.min(overageMinutes * penaltyMultiplier + longModePenalty, maxPenalty);
 }
 
@@ -1200,14 +1202,17 @@ function sourceListMatchesMode(sourceList, mode) {
   return false;
 }
 
-function getRouteTemplate(mode, refinementKey = null, routePreferences = null) {
+function getRouteTemplate(mode, refinementInput = null, routePreferences = null) {
   if (routePreferences?.shapeSequence?.length) {
     const shapeTemplate = routePreferences.shapeSequence
       .map(category => PRIMARY_CATEGORY_TO_MIRO_CATEGORY[category])
       .filter(Boolean);
     if (shapeTemplate.length) return shapeTemplate;
   }
-  return REFINEMENT_TEMPLATES[refinementKey] || ROUTE_TEMPLATES[mode] || ROUTE_TEMPLATES.balanced;
+  const keys = normalizeRefinementKeys(refinementInput);
+  const priorityOrder = ['cafe', 'walk', 'quiet', 'cheap', 'local'];
+  const matchKey = priorityOrder.find(key => keys.includes(key));
+  return REFINEMENT_TEMPLATES[matchKey] || ROUTE_TEMPLATES[mode] || ROUTE_TEMPLATES.balanced;
 }
 
 function getPlaceSearchText(place) {
@@ -1248,11 +1253,15 @@ function hasOpenNowDataForCandidates(candidates) {
   return candidates.some(place => getOpenNowValue(place) !== null);
 }
 
-function filterCandidatesForRefinement(candidates, refinementKey) {
-  if (refinementKey === 'open') {
-    return candidates.filter(place => getOpenNowValue(place) === true);
-  }
-  return candidates;
+function filterCandidatesForRefinement(candidates, refinementInput) {
+  const keys = normalizeRefinementKeys(refinementInput);
+  if (!keys.includes('open')) return candidates;
+  const withData = candidates.filter(place => getOpenNowValue(place) !== null);
+  const dataCoverageFloor = Math.max(2, Math.floor(candidates.length * 0.3));
+  if (withData.length < dataCoverageFloor) return candidates;
+  const openCandidates = candidates.filter(place => getOpenNowValue(place) === true);
+  if (openCandidates.length < 2) return candidates;
+  return openCandidates;
 }
 
 function getValueAtPath(object, path) {
@@ -1312,14 +1321,14 @@ function getFoodCafeQualityScore(place) {
 }
 
 function getRefinementScore(place, context) {
-  const refinementKey = context.refinementKey;
-  if (!refinementKey) return 0;
+  const keys = context.refinementKeys || [];
+  if (!keys.length) return 0;
 
   const category = place.miroCategory || 'unknown';
   const text = getPlaceSearchText(place);
   let score = 0;
 
-  if (refinementKey === 'walk') {
+  if (keys.includes('walk')) {
     const previousDistance = context.previousPlace ? distanceKm(place, context.previousPlace) : null;
     const centerDistance = distanceKm(place, context.areaConfig.center);
     if (Number.isFinite(previousDistance)) score -= Math.min(previousDistance * 35, 45);
@@ -1327,30 +1336,39 @@ function getRefinementScore(place, context) {
     if (['walk', 'cafe', 'eat'].includes(category)) score += 8;
   }
 
-  if (refinementKey === 'local') {
+  if (keys.includes('local')) {
     if (textHasAnyTerm(text, LOCAL_TERMS)) score += 24;
     if (place.sourcePriority > 0) score += Math.min(Number(place.sourcePriority), 12);
     if (place.isMatched === true) score += 8;
     if (category !== 'night') score += 5;
   }
 
-  if (refinementKey === 'cheap') {
+  if (keys.includes('cheap')) {
     if (['walk', 'cafe', 'see', 'shop', 'practical'].includes(category)) score += 18;
     if (textHasAnyTerm(text, BUDGET_CATEGORY_NAMES)) score += 20;
     if (['night', 'activity'].includes(category) || textHasAnyTerm(text, PREMIUM_CATEGORY_NAMES)) score -= 24;
   }
 
-  if (refinementKey === 'cafe') {
+  if (keys.includes('cafe')) {
     if (category === 'cafe') score += 36;
     if (text.includes('카페') || text.includes('coffee') || text.includes('cafe')) score += 16;
   }
 
-  if (refinementKey === 'quiet') {
+  if (keys.includes('quiet')) {
     if (['walk', 'cafe', 'see', 'shop'].includes(category)) score += 14;
     if (textHasAnyTerm(text, QUIET_TERMS)) score += 20;
-    if (category === 'night' || textHasAnyTerm(text, TOURIST_HEAVY_TERMS)) score -= 28;
+    const quietPenaltyTouched = category === 'night' || textHasAnyTerm(text, TOURIST_HEAVY_TERMS);
+    if (quietPenaltyTouched && !keys.includes('open')) score -= 28;
   }
 
+  if (keys.includes('open')) {
+    const openValue = getOpenNowValue(place);
+    if (openValue === true) score += 8;
+    else if (openValue === false) score -= 14;
+  }
+
+  score = Math.max(-180, Math.min(180, score));
+  score -= getPreviousOverlapPenalty(place, context);
   return score;
 }
 
@@ -1505,6 +1523,57 @@ function getRouteCategorySequence(moodContext, timeConfig, routePreferences = nu
   return template.slice(0, timeConfig.maxStops);
 }
 
+function deriveRefinedCategorySequence(baseSequence, refinementInput, moodContext, routePreferences = null) {
+  const keys = normalizeRefinementKeys(refinementInput);
+  if (!keys.length || routePreferences?.shapeSequence?.length) return baseSequence;
+  if (!Array.isArray(baseSequence) || !baseSequence.length) return baseSequence;
+
+  const required = new Set((moodContext?.compositionKeys || []).flatMap(
+    moodKey => MOOD_REQUIRED_PRIMARY_CATEGORIES[moodKey] || []
+  ));
+  const slots = baseSequence.slice();
+
+  const tryReplace = (replaceWith, predicate) => {
+    for (let index = slots.length - 1; index >= 0; index -= 1) {
+      const current = slots[index];
+      if (current === replaceWith) return false;
+      if (required.has(current)) continue;
+      if (!predicate(current)) continue;
+      slots[index] = replaceWith;
+      return true;
+    }
+    return false;
+  };
+
+  if (keys.includes('cafe')) {
+    const cafeCount = slots.filter(c => c === 'cafe' || c === 'dessert_bakery').length;
+    if (cafeCount === 0) {
+      tryReplace('cafe', c => ['shopping', 'walk_nature', 'landmark_view', 'activity'].includes(c)) ||
+        tryReplace('cafe', () => true);
+    } else if (cafeCount === 1 && slots.length >= 3) {
+      tryReplace('cafe', c => ['shopping', 'walk_nature', 'landmark_view', 'activity'].includes(c));
+    }
+  }
+
+  if (keys.includes('quiet')) {
+    tryReplace('walk_nature', c => c === 'bar');
+    if (!slots.includes('walk_nature') && !slots.includes('landmark_view')) {
+      tryReplace('walk_nature', c => ['shopping', 'activity'].includes(c));
+    }
+  }
+
+  if (keys.includes('cheap')) {
+    tryReplace('cafe', c => c === 'bar');
+    tryReplace('walk_nature', c => c === 'activity');
+  }
+
+  if (keys.includes('walk') && slots.length > 2) {
+    return slots.slice(0, slots.length - 1);
+  }
+
+  return slots;
+}
+
 function getPlaceStayMinutes(place) {
   const stay = place.estimatedStayMin;
   if (stay && Number.isFinite(Number(stay.min)) && Number.isFinite(Number(stay.max))) {
@@ -1615,8 +1684,8 @@ function getBacktrackingPenalty(place, context) {
 }
 
 function getDataDrivenRefinementScore(place, context, distanceM) {
-  const refinementKey = context.refinementKey;
-  if (!refinementKey) return 0;
+  const keys = context.refinementKeys || [];
+  if (!keys.length) return 0;
 
   const primaryCategory = place.primaryCategory || getPlacePrimaryCategory(place);
   const text = getPlaceSearchText(place);
@@ -1624,7 +1693,7 @@ function getDataDrivenRefinementScore(place, context, distanceM) {
   const radiusM = getAreaRadiusM(context.areaConfig);
   let score = 0;
 
-  if (refinementKey === 'walk') {
+  if (keys.includes('walk')) {
     if (Number.isFinite(distanceM)) {
       score += Math.max(0, 12 * (1 - Math.min(distanceM, radiusM) / radiusM));
     }
@@ -1638,7 +1707,7 @@ function getDataDrivenRefinementScore(place, context, distanceM) {
     if (['walk_nature', 'rest', 'cafe', 'meal'].includes(primaryCategory)) score += 6;
   }
 
-  if (refinementKey === 'local') {
+  if (keys.includes('local')) {
     if (textHasAnyTerm(text, LOCAL_TERMS)) score += 22;
     if (text.includes('main_stop') || text.includes('sub_stop')) score += 5;
     if (Number(place.sourcePriority) > 0) score += Math.min(Number(place.sourcePriority), 10);
@@ -1646,19 +1715,19 @@ function getDataDrivenRefinementScore(place, context, distanceM) {
     if (!['bar', 'rest'].includes(primaryCategory)) score += 3;
   }
 
-  if (refinementKey === 'cheap') {
+  if (keys.includes('cheap')) {
     if (['meal', 'cafe', 'dessert_bakery', 'walk_nature', 'rest'].includes(primaryCategory)) score += 10;
     if (textHasAnyTerm(text, BUDGET_CATEGORY_NAMES)) score += 18;
     if (['bar', 'activity'].includes(primaryCategory) || textHasAnyTerm(text, PREMIUM_CATEGORY_NAMES)) score -= 18;
   }
 
-  if (refinementKey === 'cafe') {
+  if (keys.includes('cafe')) {
     if (primaryCategory === 'cafe') score += 34;
     if (primaryCategory === 'dessert_bakery') score += 28;
     if (textHasAnyTerm(text, CAFE_REFINEMENT_TERMS)) score += 14;
   }
 
-  if (refinementKey === 'quiet') {
+  if (keys.includes('quiet')) {
     if (['walk_nature', 'rest'].includes(primaryCategory)) score += 24;
     if (['cafe', 'landmark_view'].includes(primaryCategory)) score += 12;
     if (textHasAnyTerm(text, QUIET_TERMS)) score += 18;
@@ -1666,6 +1735,14 @@ function getDataDrivenRefinementScore(place, context, distanceM) {
     if (textHasAnyTerm(text, TOURIST_HEAVY_TERMS)) score -= 20;
   }
 
+  if (keys.includes('open')) {
+    const openValue = getOpenNowValue(place);
+    if (openValue === true) score += 8;
+    else if (openValue === false) score -= 14;
+  }
+
+  score = Math.max(-180, Math.min(180, score));
+  score -= getPreviousOverlapPenalty(place, context);
   return score;
 }
 
@@ -1826,18 +1903,17 @@ function scoreDataDrivenPlace(place, context) {
   if (selectedPrimaryCount > 0 && !repeatAllowed) score -= selectedPrimaryCount * 30;
 
   if (context.previousPlace) {
-    const maxWalkMinutes = context.refinementKey === 'walk'
-      ? LESS_WALKING_MAX_WALK_MINUTES
-      : DEFAULT_MAX_WALK_MINUTES;
+    const walkRefined = (context.refinementKeys || []).includes('walk');
+    const maxWalkMinutes = walkRefined ? LESS_WALKING_MAX_WALK_MINUTES : DEFAULT_MAX_WALK_MINUTES;
     const mobility = classifyLegMobility(context.previousPlace, place, maxWalkMinutes);
     const legMeters = Number(mobility.distanceMeters);
     if (mobility.isWalkable) {
       score += Math.max(0, 12 - mobility.estimatedWalkMinutes * 0.5);
     } else {
-      score -= context.refinementKey === 'walk' ? 42 : 24;
+      score -= walkRefined ? 42 : 24;
     }
     if (Number.isFinite(legMeters)) {
-      score -= Math.min(legMeters / 350, context.refinementKey === 'walk' ? 16 : 10);
+      score -= Math.min(legMeters / 350, walkRefined ? 16 : 10);
     }
   }
 
@@ -2052,7 +2128,7 @@ function dataPlaceToRouteStop(place, index, previousPlace, totalStops, context) 
   };
 }
 
-function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeContext = {}, options = {}) {
+function buildDataDrivenRoute(routeKey, mood, refinementInput = null, runtimeContext = {}, options = {}) {
   const places = curatedPlaceState.places;
   if (!places.some(place => place.primaryCategory)) return null;
 
@@ -2061,22 +2137,25 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     return null;
   }
 
+  const refinementKeys = normalizeRefinementKeys(refinementInput);
   const timeConfig = getTimeConfig(state.time);
   const moodContext = getMoodContext(mood);
   const areaConfig = getAreaConfig(routeKey, runtimeContext);
   const routePreferences = options.routePreferences || null;
   const areaCandidates = getDataDrivenCandidates(places, areaConfig, timeConfig);
-  const candidates = filterCandidatesForRefinement(
-    areaCandidates,
-    refinementKey
-  );
+  const candidates = filterCandidatesForRefinement(areaCandidates, refinementKeys);
+  const previousStopIdentitySet = options.previousRoute
+    ? getPreviousRouteStopIdentitySet(options.previousRoute)
+    : new Set();
   const baseContext = {
     areaConfig,
     timeConfig,
     moodContext,
-    refinementKey,
+    refinementKeys,
     routePreferences,
     durationCapMin: getDurationSoftCapMin(timeConfig),
+    previousStopIdentitySet,
+    previousRouteOverlapMultiplier: Number(options.previousRouteOverlapMultiplier) || 1,
   };
   const scoredCandidates = candidates
     .map(place => ({ place, score: scoreDataDrivenPlace(place, {
@@ -2103,7 +2182,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     candidatesAfterMoodScoring: scoredCandidates.length,
     uxMinStops,
     durationCapMin: baseContext.durationCapMin,
-    refinementKey,
+    refinementKeys,
   });
 
   if (scoredCandidates.length < timeConfig.minStops) {
@@ -2112,7 +2191,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
       scoredCandidates: scoredCandidates.length,
       minStops: timeConfig.minStops,
       routeKey,
-      refinementKey,
+      refinementKeys,
     });
     return null;
   }
@@ -2120,7 +2199,8 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
   const selected = [];
   const selectedKeys = new Set();
   const categoryCounts = {};
-  const sequence = getRouteCategorySequence(moodContext, timeConfig, routePreferences);
+  const baseSequence = getRouteCategorySequence(moodContext, timeConfig, routePreferences);
+  const sequence = deriveRefinedCategorySequence(baseSequence, refinementKeys, moodContext, routePreferences);
   const requiredCategories = getMoodRequiredPrimaryCategories(moodContext);
 
   const limitedSequence = sequence.slice(0, timeConfig.maxStops);
@@ -2172,7 +2252,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
       requiredCategories,
       selectedCategories: selected.map(place => place.primaryCategory),
       routeKey,
-      refinementKey,
+      refinementKeys,
     });
     return null;
   }
@@ -2233,7 +2313,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
       uxMinStops,
       configuredMinStops: timeConfig.minStops,
       routeKey,
-      refinementKey,
+      refinementKeys,
     });
     return null;
   }
@@ -2254,7 +2334,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
 
   debugRouteRecommendation('data_driven_succeeded', {
     routeKey,
-    refinementKey,
+    refinementKeys,
     area: areaConfig.label,
     time: timeConfig.key,
     selectedCategories: orderedPlaces.map(place => place.primaryCategory),
@@ -2288,38 +2368,46 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     sourceKind: 'local_dataset',
     sourceLabel: 'Local place dataset',
     mode: getRouteMode(mood),
-    refinementKey,
+    refinementKeys,
     stops,
   };
 }
 
-function buildCuratedRoute(routeKey, mood, refinementKey = null, runtimeContext = {}, options = {}) {
-  const dataDrivenRoute = buildDataDrivenRoute(routeKey, mood, refinementKey, runtimeContext, options);
+function buildCuratedRoute(routeKey, mood, refinementInput = null, runtimeContext = {}, options = {}) {
+  const refinementKeys = normalizeRefinementKeys(refinementInput);
+  const dataDrivenRoute = buildDataDrivenRoute(routeKey, mood, refinementKeys, runtimeContext, options);
   if (dataDrivenRoute) {
-    debugRouteRecommendation('route_source', { routeKey, refinementKey, source: 'local_dataset' });
+    debugRouteRecommendation('route_source', { routeKey, refinementKeys, source: 'local_dataset' });
     return dataDrivenRoute;
   }
 
-  return buildLegacyCuratedRoute(routeKey, mood, refinementKey, options);
+  return buildLegacyCuratedRoute(routeKey, mood, refinementKeys, options);
 }
 
-function buildLegacyCuratedRoute(routeKey, mood, refinementKey = null, options = {}) {
+function buildLegacyCuratedRoute(routeKey, mood, refinementInput = null, options = {}) {
   const places = curatedPlaceState.places;
   if (!places.length) return null;
 
+  const refinementKeys = normalizeRefinementKeys(refinementInput);
   const areaConfig = getAreaConfig(routeKey);
   const moodContext = getMoodContext(mood);
   const mode = getRouteMode(mood);
   const routePreferences = options.routePreferences || null;
-  const template = getRouteTemplate(mode, refinementKey, routePreferences);
-  const candidates = filterCandidatesForRefinement(getAreaCandidates(places, areaConfig), refinementKey);
+  const template = getRouteTemplate(mode, refinementKeys, routePreferences);
+  const candidates = filterCandidatesForRefinement(getAreaCandidates(places, areaConfig), refinementKeys);
   if (!candidates.length) return null;
+
+  const previousStopIdentitySet = options.previousRoute
+    ? getPreviousRouteStopIdentitySet(options.previousRoute)
+    : new Set();
+  const previousRouteOverlapMultiplier = Number(options.previousRouteOverlapMultiplier) || 1;
+  const walkRefined = refinementKeys.includes('walk');
 
   const selected = [];
   const selectedKeys = new Set();
   const categoryCounts = {};
-  const maxStops = Math.min(refinementKey === 'walk' ? 3 : 4, candidates.length);
-  const maxWalkMinutes = getMaxWalkMinutesForRefinement(refinementKey);
+  const maxStops = Math.min(walkRefined ? 3 : 4, candidates.length);
+  const maxWalkMinutes = getMaxWalkMinutesForRefinement(refinementKeys);
   const requiredCategories = getMoodRequiredPrimaryCategories(moodContext);
 
   template.slice(0, maxStops).forEach(targetCategory => {
@@ -2329,10 +2417,12 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementKey = null, options =
       mode,
       targetCategory,
       categoryCounts,
-      refinementKey,
+      refinementKeys,
       routePreferences,
       maxWalkMinutes,
       previousPlace: selected[selected.length - 1] || null,
+      previousStopIdentitySet,
+      previousRouteOverlapMultiplier,
     };
     const pool = getMobilityAwareCandidatePool(candidates, exactMatches, context);
     const place = selectBestPlace(pool, context, selectedKeys);
@@ -2349,10 +2439,12 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementKey = null, options =
       mode,
       targetCategory: null,
       categoryCounts,
-      refinementKey,
+      refinementKeys,
       routePreferences,
       maxWalkMinutes,
       previousPlace: selected[selected.length - 1] || null,
+      previousStopIdentitySet,
+      previousRouteOverlapMultiplier,
     }, selectedKeys);
     if (!place) break;
     selected.push(place);
@@ -2367,9 +2459,11 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementKey = null, options =
       areaConfig,
       mode,
       categoryCounts,
-      refinementKey,
+      refinementKeys,
       routePreferences,
       maxWalkMinutes,
+      previousStopIdentitySet,
+      previousRouteOverlapMultiplier,
     },
     selectedKeys,
     categoryCounts,
@@ -2386,9 +2480,11 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementKey = null, options =
       areaConfig,
       mode,
       categoryCounts,
-      refinementKey,
+      refinementKeys,
       routePreferences,
       maxWalkMinutes,
+      previousStopIdentitySet,
+      previousRouteOverlapMultiplier,
     },
     selectedKeys,
     categoryCounts,
@@ -2417,7 +2513,7 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementKey = null, options =
       total: formatMinutes(stayMinutes + estimatedTravelMinutes),
       walking: `${walkingMinutes} min`,
     },
-    why: appendRoutePreferenceExplanation(buildRouteWhy(areaConfig.label, refinementKey), routePreferences),
+    why: appendRoutePreferenceExplanation(buildRouteWhy(areaConfig.label, refinementKeys), routePreferences),
     ask: {
       why: `This route uses processed Naver place data first, then ranks places for ${areaConfig.label} and your selected mood.`,
       crowd: 'I can prefer quieter categories and nearby side-street matches, but this static version does not check live crowd levels.',
@@ -2426,23 +2522,17 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementKey = null, options =
     sourceKind: 'processed',
     sourceLabel: 'Real Naver places',
     mode,
-    refinementKey,
+    refinementKeys,
     stops,
   };
 }
 
-function buildRouteWhy(areaLabel, refinementKey = null) {
+function buildRouteWhy(areaLabel, refinementInput = null) {
   const base = `Built from the processed Naver place dataset for ${areaLabel}. Stops are ranked by category fit, area match, availability, and saved-list priority.`;
-  if (!refinementKey) return base;
-  const refinements = {
-    walk: ' This version adds a compactness preference using stop coordinates.',
-    local: ' This version gives extra weight to local, hidden, and saved-list signals.',
-    cheap: ' This version leans toward budget-friendly categories without estimating prices.',
-    cafe: ' This version gives extra weight to cafe-category places.',
-    quiet: ' This version de-prioritizes tourist-heavy and nightlife-heavy signals where identifiable.',
-    open: ' This version only uses places with an explicit open-now field marked true.',
-  };
-  return `${base}${refinements[refinementKey] || ''}`;
+  const keys = normalizeRefinementKeys(refinementInput);
+  if (!keys.length) return base;
+  const labels = getRefinementLabels(keys);
+  return `${base} Adjusted for: ${labels.join(' · ')}.`;
 }
 
 function appendRoutePreferenceExplanation(why, routePreferences) {
@@ -2575,24 +2665,25 @@ function buildEmptyRealRoute(routeKey, message) {
   };
 }
 
-function resolveRouteForCurrentSelection(routeKey, refinementKey = state.activeRefinement, runtimeContext = {}, options = {}) {
-  const realRoute = buildCuratedRoute(routeKey, state.mood, refinementKey, runtimeContext, options);
+function resolveRouteForCurrentSelection(routeKey, refinementInput = getActiveRefinementKeys(), runtimeContext = {}, options = {}) {
+  const refinementKeys = normalizeRefinementKeys(refinementInput);
+  const realRoute = buildCuratedRoute(routeKey, state.mood, refinementKeys, runtimeContext, options);
   if (realRoute) {
     return realRoute;
   }
 
   if (MOCK_ROUTES_ENABLED) {
-    debugRouteRecommendation('fallback_route', { routeKey, refinementKey, reason: 'mock_mode_enabled' });
+    debugRouteRecommendation('fallback_route', { routeKey, refinementKeys, reason: 'mock_mode_enabled' });
     return buildMockFallbackRoute(routeKey, 'Using prototype fallback because mock mode is enabled.');
   }
 
   if (curatedPlaceState.failed) {
-    debugRouteRecommendation('fallback_route', { routeKey, refinementKey, reason: 'local_data_load_failed' });
+    debugRouteRecommendation('fallback_route', { routeKey, refinementKeys, reason: 'local_data_load_failed' });
     return buildMockFallbackRoute(routeKey, 'Local place data could not be loaded, so this is a prototype fallback.');
   }
 
   if (!curatedPlaceState.places.length) {
-    debugRouteRecommendation('fallback_route', { routeKey, refinementKey, reason: 'no_local_places_loaded' });
+    debugRouteRecommendation('fallback_route', { routeKey, refinementKeys, reason: 'no_local_places_loaded' });
     return buildMockFallbackRoute(routeKey, 'No local places are loaded yet, so this is a prototype fallback.');
   }
 
@@ -2600,7 +2691,7 @@ function resolveRouteForCurrentSelection(routeKey, refinementKey = state.activeR
     || 'Not enough local dataset places matched this area, time, and mood, so this is a prototype fallback.';
   debugRouteRecommendation('fallback_route', {
     routeKey,
-    refinementKey,
+    refinementKeys,
     reason: runtimeContext.locationError ? 'runtime_context_error' : 'not_enough_matching_places',
   });
   return buildMockFallbackRoute(routeKey, notice);
@@ -2719,12 +2810,128 @@ const state = {
   time: '2 hours',
   mood: 'Local food',
   shape: null,
-  refine: {},
-  applied: new Set(),
-  activeRefinement: null,
+  activeRefinements: [],
   activeStop: null,
   routeKey: 'hongdae',
 };
+
+const REFINEMENT_KEYS = ['walk', 'local', 'cheap', 'cafe', 'quiet', 'open'];
+const REFINEMENT_LABELS = {
+  walk: 'Less walking',
+  local: 'More local',
+  cheap: 'Cheaper',
+  cafe: 'More cafes',
+  quiet: 'Avoid crowds',
+  open: 'Open now only',
+};
+
+function normalizeRefinementKeys(value) {
+  if (value === null || value === undefined || value === '') return [];
+  let raw;
+  if (Array.isArray(value)) raw = value;
+  else if (value instanceof Set) raw = [...value];
+  else raw = [value];
+  const seen = new Set();
+  const result = [];
+  for (const item of raw) {
+    if (!item) continue;
+    const key = String(item).trim();
+    if (REFINEMENT_KEYS.includes(key) && !seen.has(key)) {
+      seen.add(key);
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+function getActiveRefinementKeys() {
+  return state.activeRefinements.slice();
+}
+
+function hasActiveRefinement(key) {
+  return state.activeRefinements.includes(key);
+}
+
+function getRefinementCount() {
+  return state.activeRefinements.length;
+}
+
+function setActiveRefinements(keys) {
+  state.activeRefinements = normalizeRefinementKeys(keys);
+  syncRefineChips();
+  updateRefineSummary();
+}
+
+function toggleRefinement(key) {
+  if (!REFINEMENT_KEYS.includes(key)) return;
+  state.activeRefinements = hasActiveRefinement(key)
+    ? state.activeRefinements.filter(k => k !== key)
+    : [...state.activeRefinements, key];
+  syncRefineChips();
+  updateRefineSummary();
+}
+
+function getRefinementLabels(keys = state.activeRefinements) {
+  return normalizeRefinementKeys(keys).map(k => REFINEMENT_LABELS[k]).filter(Boolean);
+}
+
+function getOverlapPenaltyStrength(refinementCount) {
+  if (refinementCount <= 0) return 0;
+  if (refinementCount === 1) return 14;
+  if (refinementCount === 2) return 24;
+  return 36;
+}
+
+function getRouteStopIdentity(stop) {
+  if (!stop) return '';
+  const place = stop.place || stop;
+  const id = place.placeId || place.id || place.sid || place.naverPlaceId || place.kakaoPlaceId;
+  if (id && String(id).trim()) return String(id).trim();
+  const name = stop.name || place.displayName || place.name || '';
+  const lat = stop.coords?.lat ?? place.lat ?? '';
+  const lng = stop.coords?.lng ?? place.lng ?? '';
+  return name ? `${name}@${lat},${lng}` : '';
+}
+
+function getCandidateIdentity(place) {
+  if (!place) return '';
+  const id = place.placeId || place.id || place.sid || place.naverPlaceId || place.kakaoPlaceId;
+  if (id && String(id).trim()) return String(id).trim();
+  const name = place.displayName || place.name || '';
+  const lat = place.lat ?? place.coords?.lat ?? '';
+  const lng = place.lng ?? place.coords?.lng ?? '';
+  return name ? `${name}@${lat},${lng}` : '';
+}
+
+function getPreviousRouteStopIdentitySet(route) {
+  const set = new Set();
+  if (!route || !Array.isArray(route.stops)) return set;
+  for (const stop of route.stops) {
+    const id = getRouteStopIdentity(stop);
+    if (id) set.add(id);
+  }
+  return set;
+}
+
+function countSharedStops(routeA, routeB) {
+  if (!routeA?.stops || !routeB?.stops) return 0;
+  const setB = getPreviousRouteStopIdentitySet(routeB);
+  let n = 0;
+  for (const stop of routeA.stops) {
+    if (setB.has(getRouteStopIdentity(stop))) n += 1;
+  }
+  return n;
+}
+
+function getPreviousOverlapPenalty(place, context) {
+  const set = context.previousStopIdentitySet;
+  if (!set || !set.size) return 0;
+  const id = getCandidateIdentity(place);
+  if (!id || !set.has(id)) return 0;
+  const baseStrength = getOverlapPenaltyStrength(context.refinementKeys?.length || 0);
+  const multiplier = Number(context.previousRouteOverlapMultiplier) || 1;
+  return baseStrength * multiplier;
+}
 
 let currentRoute = null;
 let realPlacesLoadPromise = null;
@@ -2821,7 +3028,7 @@ async function applyRouteForCurrentSelection() {
   const routePreferences = getOptionalRoutePreferences();
   applyResolvedRoute(resolveRouteForCurrentSelection(
     state.routeKey,
-    state.activeRefinement,
+    getActiveRefinementKeys(),
     runtimeContext,
     { routePreferences }
   ));
@@ -3659,14 +3866,16 @@ function routeCoordKey(value) {
 
 function getCurrentRouteGeometryKey() {
   if (!currentRoute || !Array.isArray(currentRoute.stops)) return '';
-  const threshold = getMaxWalkMinutesForRefinement(currentRoute.refinementKey);
+  const threshold = getMaxWalkMinutesForRefinement(currentRoute.refinementKeys);
   const pointsKey = currentRoute.stops
     .map(stop => {
       if (!hasValidCoords(stop.coords)) return 'missing';
       return `${routeCoordKey(stop.coords.lng)},${routeCoordKey(stop.coords.lat)}`;
     })
     .join('|');
-  return `${currentRoute.refinementKey || 'default'}:${threshold}:${pointsKey}`;
+  const refinementKeys = normalizeRefinementKeys(currentRoute.refinementKeys);
+  const refinementSig = refinementKeys.length ? refinementKeys.slice().sort().join(',') : 'default';
+  return `${refinementSig}:${threshold}:${pointsKey}`;
 }
 
 function getRouteLegsWithCoords() {
@@ -3947,7 +4156,7 @@ function resolveCurrentRouteGeometry() {
 
 async function buildMixedRouteGeometry() {
   const legs = getRouteLegsWithCoords();
-  const maxWalkMinutes = getMaxWalkMinutesForRefinement(currentRoute?.refinementKey);
+  const maxWalkMinutes = getMaxWalkMinutesForRefinement(currentRoute?.refinementKeys);
   const path = [];
   const segments = [];
   const summary = {
@@ -4486,16 +4695,23 @@ document.querySelectorAll('.refine-chip').forEach(chip => {
 });
 
 function syncRefineChips() {
+  const active = new Set(state.activeRefinements);
   document.querySelectorAll('.refine-chip').forEach(chip => {
-    chip.classList.toggle('applied', chip.dataset.refine === state.activeRefinement);
+    chip.classList.toggle('applied', active.has(chip.dataset.refine));
   });
 }
 
-function setActiveRefinement(key) {
-  state.activeRefinement = key || null;
-  state.applied.clear();
-  if (state.activeRefinement) state.applied.add(state.activeRefinement);
-  syncRefineChips();
+function updateRefineSummary() {
+  const summary = document.getElementById('refine-summary');
+  if (!summary) return;
+  const labels = getRefinementLabels();
+  if (!labels.length) {
+    summary.textContent = '';
+    summary.hidden = true;
+    return;
+  }
+  summary.textContent = `Adjusted for: ${labels.join(' · ')}`;
+  summary.hidden = false;
 }
 
 function getCurrentAreaCandidates() {
@@ -4504,41 +4720,92 @@ function getCurrentAreaCandidates() {
   return getAreaCandidates(curatedPlaceState.places, getAreaConfig(routeKey, runtimeContext));
 }
 
+function isSameStopSet(routeA, routeB) {
+  if (!routeA?.stops || !routeB?.stops) return false;
+  if (routeA.stops.length !== routeB.stops.length) return false;
+  const idsA = getPreviousRouteStopIdentitySet(routeA);
+  const idsB = getPreviousRouteStopIdentitySet(routeB);
+  if (idsA.size !== idsB.size) return false;
+  for (const id of idsA) if (!idsB.has(id)) return false;
+  return true;
+}
+
 function applyRefinement(key) {
-  if (!REFINE_TEXTS[key]) return;
+  if (!REFINEMENT_KEYS.includes(key)) return;
+
+  const isRemoving = hasActiveRefinement(key);
+  const previousActive = getActiveRefinementKeys();
+  const nextActive = isRemoving
+    ? previousActive.filter(k => k !== key)
+    : [...previousActive, key];
 
   ensureRealPlacesLoaded().then(async () => {
-    if (state.activeRefinement === key) {
-      setActiveRefinement(null);
-      await applyRouteForCurrentSelection();
-      showToast(REFINE_TEXTS[key].undo);
-      return;
-    }
-
     const routeKey = getRouteKey(state.area);
     const runtimeContext = await getRouteRuntimeContext(routeKey);
-    const candidates = getCurrentAreaCandidates();
-    if (key === 'open' && !hasOpenNowDataForCandidates(candidates)) {
-      showToast(REFINE_TEXTS.open.unavailable);
+    const routePreferences = getOptionalRoutePreferences();
+    const previousRoute = currentRoute;
+
+    if (!nextActive.length) {
+      state.activeRefinements = [];
+      syncRefineChips();
+      updateRefineSummary();
+      state.routeKey = routeKey;
+      applyResolvedRoute(resolveRouteForCurrentSelection(routeKey, [], runtimeContext, { routePreferences }));
+      const undoText = REFINE_TEXTS[key]?.undo || 'Cleared refinement.';
+      showToast(undoText);
       return;
     }
 
-    const refinedRoute = buildCuratedRoute(
+    let openNotice = '';
+    if (nextActive.includes('open')) {
+      const candidates = getCurrentAreaCandidates();
+      if (!hasOpenNowDataForCandidates(candidates)) {
+        openNotice = REFINE_TEXTS.open.unavailable;
+      }
+    }
+
+    let refinedRoute = buildCuratedRoute(
       routeKey,
       state.mood,
-      key,
+      nextActive,
       runtimeContext,
-      { routePreferences: getOptionalRoutePreferences() }
+      { routePreferences, previousRoute }
     );
+
     if (!refinedRoute || !refinedRoute.stops.length) {
-      showToast('Not enough matching saved places for that refinement yet.');
+      showToast('Not enough matching places for that refinement yet.');
       return;
     }
 
+    let identical = previousRoute && isSameStopSet(refinedRoute, previousRoute);
+    if (identical) {
+      const retry = buildCuratedRoute(
+        routeKey,
+        state.mood,
+        nextActive,
+        runtimeContext,
+        { routePreferences, previousRoute, previousRouteOverlapMultiplier: 2 }
+      );
+      if (retry && retry.stops.length) {
+        refinedRoute = retry;
+        identical = previousRoute && isSameStopSet(retry, previousRoute);
+      }
+    }
+
+    state.activeRefinements = nextActive;
     state.routeKey = routeKey;
-    setActiveRefinement(key);
+    syncRefineChips();
+    updateRefineSummary();
     applyResolvedRoute(refinedRoute);
-    showToast(REFINE_TEXTS[key].applied);
+
+    if (identical) {
+      showToast('Not enough nearby alternatives to change the route much.');
+    } else if (openNotice) {
+      showToast(openNotice);
+    } else {
+      const labels = getRefinementLabels(nextActive);
+      showToast(`Adjusted for: ${labels.join(' · ')}`);
+    }
     flashWhy();
   });
 }
@@ -4574,7 +4841,7 @@ function getRouteSnapshot() {
     area: state.area,
     time: state.time,
     vibe: state.mood,
-    activeRefinement: state.activeRefinement,
+    activeRefinements: getActiveRefinementKeys(),
     activeMapProvider: getActiveMapProvider(),
     summary: {
       label: currentRoute?.label || '',
@@ -4592,7 +4859,7 @@ function getRouteSnapshotKey(snapshot) {
     snapshot.area,
     snapshot.time,
     snapshot.vibe,
-    snapshot.activeRefinement || '',
+    Array.isArray(snapshot.activeRefinements) ? snapshot.activeRefinements.slice().sort().join(',') : '',
     snapshot.stops.map(stop => stop.id || stop.name).join('>'),
   ].join('|');
 }
@@ -4644,7 +4911,7 @@ function buildShareText() {
     'Kandid Spot',
     `${state.area} · ${state.time} · ${state.mood}`,
     currentRoute?.mapLabel || currentRoute?.label || 'Route',
-    state.activeRefinement ? `Refinement: ${state.activeRefinement}` : '',
+    getRefinementCount() ? `Refinements: ${getRefinementLabels().join(', ')}` : '',
     stopLines,
     pageUrl,
   ].filter(Boolean).join('\n');
