@@ -3906,78 +3906,82 @@ function addNaverPolyline(polyline) {
   ];
 }
 
-function getRouteLineStyle({ fallback = false } = {}) {
-  return {
-    strokeOpacity: fallback ? 0.65 : 0.95,
-    strokeStyle: fallback ? 'shortdash' : 'solid',
-  };
+function getRouteSegmentMode(segment) {
+  if (!segment) return 'estimated';
+  if (segment.isFallback) return 'estimated';
+  if (segment.source === 'tmap_pedestrian') return 'walk';
+  if (segment.source === 'naver_directions') return 'taxi';
+  return segment.routingMode === 'walk' ? 'walk' : 'taxi';
 }
 
-function renderKakaoPolyline(points, { realRoute = false, fallback = false, append = false } = {}) {
+function getRouteSegmentStyle(segment) {
+  const mode = getRouteSegmentMode(segment);
+  if (mode === 'walk') {
+    return { mode, strokeColor: '#10B981', strokeWeight: 4, strokeStyle: 'solid', strokeOpacity: 0.95 };
+  }
+  if (mode === 'taxi') {
+    return { mode, strokeColor: '#FF3B86', strokeWeight: 6, strokeStyle: 'solid', strokeOpacity: 0.95 };
+  }
+  return { mode, strokeColor: '#9CA3AF', strokeWeight: 4, strokeStyle: 'shortdash', strokeOpacity: 0.7 };
+}
+
+function renderKakaoPolyline(points, { segment = null, append = false } = {}) {
   if (!points.length || !kakaoMapState.map || !window.kakao || !window.kakao.maps) return;
 
   if (!append) {
     clearKakaoPolylines();
   }
 
-  const style = getRouteLineStyle({ fallback });
+  const style = getRouteSegmentStyle(segment);
   const polyline = new window.kakao.maps.Polyline({
     path: toKakaoLatLngPath(points),
-    strokeWeight: 5,
-    strokeColor: '#2563EB',
+    strokeWeight: style.strokeWeight,
+    strokeColor: style.strokeColor,
     strokeOpacity: style.strokeOpacity,
     strokeStyle: style.strokeStyle,
   });
   polyline.setMap(kakaoMapState.map);
   addKakaoPolyline(polyline);
 
-  if (realRoute && !fallback) {
-    console.log('Kakao real route polyline rendered');
+  if (segment && !segment.isFallback) {
+    console.log(`Kakao route polyline rendered (${style.mode})`);
   }
 }
 
 function renderKakaoRouteSegments(segments) {
   clearKakaoPolylines();
   segments.forEach(segment => {
-    renderKakaoPolyline(segment.path, {
-      realRoute: !segment.isFallback,
-      fallback: segment.isFallback,
-      append: true,
-    });
+    renderKakaoPolyline(segment.path, { segment, append: true });
   });
 }
 
-function renderNaverPolyline(points, { realRoute = false, fallback = false, append = false } = {}) {
+function renderNaverPolyline(points, { segment = null, append = false } = {}) {
   if (!points.length || !naverMapState.map || !window.naver || !window.naver.maps) return;
 
   if (!append) {
     clearNaverPolylines();
   }
 
-  const style = getRouteLineStyle({ fallback });
+  const style = getRouteSegmentStyle(segment);
   const polyline = new window.naver.maps.Polyline({
     map: naverMapState.map,
     path: toNaverLatLngPath(points),
-    strokeWeight: 5,
-    strokeColor: '#2563EB',
+    strokeWeight: style.strokeWeight,
+    strokeColor: style.strokeColor,
     strokeOpacity: style.strokeOpacity,
     strokeStyle: style.strokeStyle,
   });
   addNaverPolyline(polyline);
 
-  if (realRoute && !fallback) {
-    console.log('Naver real route polyline rendered');
+  if (segment && !segment.isFallback) {
+    console.log(`Naver route polyline rendered (${style.mode})`);
   }
 }
 
 function renderNaverRouteSegments(segments) {
   clearNaverPolylines();
   segments.forEach(segment => {
-    renderNaverPolyline(segment.path, {
-      realRoute: !segment.isFallback,
-      fallback: segment.isFallback,
-      append: true,
-    });
+    renderNaverPolyline(segment.path, { segment, append: true });
   });
 }
 

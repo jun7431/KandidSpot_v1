@@ -713,15 +713,20 @@ input { font-family: inherit; }
   align-items: center;
   gap: 7px;
 }
-.legend-dot {
-  width: 10px; height: 10px;
-  border-radius: 50%;
+.legend-line {
+  width: 18px; height: 3px;
+  border-radius: 2px;
   flex-shrink: 0;
 }
-.legend-dash {
-  width: 16px; height: 2px;
-  background: repeating-linear-gradient(90deg, var(--primary) 0 4px, transparent 4px 7px);
-  flex-shrink: 0;
+.legend-line-walk {
+  background: #10B981;
+}
+.legend-line-taxi {
+  background: #FF3B86;
+  height: 4px;
+}
+.legend-line-estimated {
+  background: repeating-linear-gradient(90deg, #9CA3AF 0 4px, transparent 4px 7px);
 }
 
 /* Ask Miro FAB */
