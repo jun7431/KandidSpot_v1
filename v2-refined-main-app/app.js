@@ -5187,6 +5187,148 @@ document.getElementById('saved-btn').addEventListener('click', () => {
   showToast(savedRoutes.length ? `${savedRoutes.length} saved route${savedRoutes.length === 1 ? '' : 's'} in this browser.` : 'No saved routes yet — save this one to start your guide.');
 });
 
+// ========== Early access signup ==========
+const earlyAccessButton = document.getElementById('early-access-btn');
+const earlyAccessModal = document.getElementById('early-access-modal');
+const earlyAccessClose = document.getElementById('early-access-close');
+const earlyAccessDone = document.getElementById('early-access-done');
+const earlyAccessForm = document.getElementById('early-access-form');
+const earlyAccessCopy = document.getElementById('early-access-copy');
+const earlyAccessSuccess = document.getElementById('early-access-success');
+const earlyAccessError = document.getElementById('early-access-error');
+const earlyAccessSubmit = document.getElementById('early-access-submit');
+const earlyAccessNameInput = document.getElementById('ea-name');
+const earlyAccessEmailInput = document.getElementById('ea-email');
+const earlyAccessConsent = document.getElementById('ea-consent');
+
+function isEarlyAccessOpen() {
+  return !!earlyAccessModal?.classList.contains('open');
+}
+
+function setEarlyAccessError(message, focusEl) {
+  if (!earlyAccessError) return;
+  earlyAccessError.textContent = message || '';
+  earlyAccessError.hidden = !message;
+  if (message && focusEl && typeof focusEl.focus === 'function') {
+    focusEl.focus();
+  }
+}
+
+function openEarlyAccess() {
+  if (!earlyAccessModal) return;
+  earlyAccessModal.classList.add('open');
+  earlyAccessModal.setAttribute('aria-hidden', 'false');
+  setEarlyAccessError('');
+  if (earlyAccessForm && !earlyAccessForm.hidden) {
+    setTimeout(() => earlyAccessNameInput?.focus(), 60);
+  }
+}
+
+function closeEarlyAccess() {
+  if (!earlyAccessModal) return;
+  earlyAccessModal.classList.remove('open');
+  earlyAccessModal.setAttribute('aria-hidden', 'true');
+}
+
+function getEarlyAccessSessionId() {
+  const key = 'kandid_spot_early_access_session_id';
+  try {
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+    const next = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `ea_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem(key, next);
+    return next;
+  } catch (error) {
+    return '';
+  }
+}
+
+function buildEarlyAccessPayload(formData) {
+  const value = name => String(formData.get(name) || '').trim();
+  return {
+    name: value('name'),
+    email: value('email'),
+    country: value('country'),
+    age_range: value('age_range'),
+    gender: value('gender'),
+    user_type: value('user_type'),
+    message: value('message'),
+    company_website: value('company_website'),
+    consent: !!earlyAccessConsent?.checked,
+    page: window.location.pathname,
+    referrer: document.referrer || '',
+    user_agent: navigator.userAgent || '',
+    session_id: getEarlyAccessSessionId(),
+    metadata: {
+      language: navigator.language || '',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+    },
+  };
+}
+
+async function submitEarlyAccess(event) {
+  event.preventDefault();
+  if (!earlyAccessForm || !earlyAccessSubmit) return;
+
+  const formData = new FormData(earlyAccessForm);
+  const payload = buildEarlyAccessPayload(formData);
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!payload.name) {
+    setEarlyAccessError('Please enter your name.', earlyAccessNameInput);
+    return;
+  }
+  if (!payload.email || !emailPattern.test(payload.email)) {
+    setEarlyAccessError('Please enter a valid email address.', earlyAccessEmailInput);
+    return;
+  }
+  if (!payload.consent) {
+    setEarlyAccessError('Please agree to be contacted about early access.', earlyAccessConsent);
+    return;
+  }
+
+  setEarlyAccessError('');
+  earlyAccessSubmit.disabled = true;
+  const originalLabel = earlyAccessSubmit.textContent;
+  earlyAccessSubmit.textContent = 'joining...';
+
+  try {
+    const response = await fetch('/api/early-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.error || 'Could not join the list right now.');
+    }
+
+    if (earlyAccessCopy) earlyAccessCopy.hidden = true;
+    earlyAccessForm.hidden = true;
+    if (earlyAccessSuccess) {
+      const title = earlyAccessSuccess.querySelector('h3');
+      if (title && result.duplicate) title.textContent = "You're already on the list.";
+      earlyAccessSuccess.hidden = false;
+      earlyAccessDone?.focus();
+    }
+    showToast(result.duplicate ? "You're already on the early access list." : "You're on the early access list.");
+  } catch (error) {
+    setEarlyAccessError(error.message || 'Could not join the list right now.');
+  } finally {
+    earlyAccessSubmit.disabled = false;
+    earlyAccessSubmit.textContent = originalLabel;
+  }
+}
+
+earlyAccessButton?.addEventListener('click', openEarlyAccess);
+earlyAccessClose?.addEventListener('click', closeEarlyAccess);
+earlyAccessDone?.addEventListener('click', closeEarlyAccess);
+earlyAccessModal?.querySelector('[data-early-access-close]')?.addEventListener('click', closeEarlyAccess);
+earlyAccessForm?.addEventListener('submit', submitEarlyAccess);
+
 // ========== Ask Miro drawer ==========
 const askDrawer = document.getElementById('ask-drawer');
 const askThread = document.getElementById('ask-thread');
@@ -5285,7 +5427,8 @@ function showToast(msg) {
 // ========== Esc key handlers ==========
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    if (askDrawer.classList.contains('open')) closeAsk();
+    if (isEarlyAccessOpen()) closeEarlyAccess();
+    else if (askDrawer.classList.contains('open')) closeAsk();
     else if (document.getElementById('float-card').classList.contains('show')) {
       hideFloatCard();
     }

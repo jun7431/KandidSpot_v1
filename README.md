@@ -38,6 +38,61 @@ https://your-custom-domain.com
 
 In Naver Cloud Console, enable Maps / Web Dynamic Map / Dynamic Map for the application, and register the deployed domain if the console requires a web service URL/domain setting.
 
+## Early access signup configuration
+
+The active app posts early access form submissions to:
+
+```text
+POST /api/early-access
+```
+
+The endpoint exists in both deploy layouts:
+
+```text
+api/early-access.js
+v2-refined-main-app/api/early-access.js
+```
+
+Set these Vercel Environment Variables before enabling the form in production:
+
+```text
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` must stay server-side only. Do not expose it in frontend JavaScript.
+
+Run this SQL in Supabase if `public.early_access_signups` does not already exist:
+
+```sql
+create table if not exists public.early_access_signups (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  name text not null,
+  email text not null,
+  country text,
+  age_range text,
+  gender text,
+  user_type text,
+  message text,
+  consent boolean not null default false,
+  source text default 'kandid_spot_app',
+  page text,
+  referrer text,
+  user_agent text,
+  session_id text,
+  metadata jsonb default '{}'::jsonb
+);
+
+create index if not exists early_access_signups_created_at_idx
+on public.early_access_signups (created_at desc);
+
+create index if not exists early_access_signups_email_idx
+on public.early_access_signups (lower(email));
+```
+
+View submissions in the Supabase dashboard under Table Editor -> `public.early_access_signups`.
+
 ---
 
 ## Strategic decisions (in order)

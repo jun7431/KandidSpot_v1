@@ -326,6 +326,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         <span>New</span>
       </button>
+      <button class="early-access-btn" id="early-access-btn" type="button">early access</button>
       <button class="ghost-btn" id="saved-btn" title="Saved routes">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
         <span>Saved</span>
@@ -613,6 +614,101 @@
         </button>
       </footer>
     </div>
+  </aside>
+
+  <!-- ============== EARLY ACCESS ============== -->
+  <aside class="early-access-modal" id="early-access-modal" aria-hidden="true">
+    <div class="early-access-backdrop" data-early-access-close></div>
+    <section class="early-access-panel" role="dialog" aria-modal="true" aria-labelledby="early-access-title">
+      <button class="early-access-close" id="early-access-close" type="button" aria-label="Close early access form">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+
+      <div class="early-access-copy" id="early-access-copy">
+        <div class="early-access-kicker">Early access</div>
+        <h2 id="early-access-title">Use Kandid Spot after launch.</h2>
+        <p>Join the list for beta updates and first access when the official route planner opens.</p>
+      </div>
+
+      <form class="early-access-form" id="early-access-form" novalidate>
+        <div class="early-access-honeypot" aria-hidden="true">
+          <label for="ea-company-website">Company website</label>
+          <input id="ea-company-website" name="company_website" type="text" tabindex="-1" autocomplete="off">
+        </div>
+
+        <label class="early-access-field">
+          <span>Name <strong>*</strong></span>
+          <input id="ea-name" name="name" type="text" autocomplete="name" required>
+        </label>
+
+        <label class="early-access-field">
+          <span>Email <strong>*</strong></span>
+          <input id="ea-email" name="email" type="email" autocomplete="email" required>
+        </label>
+
+        <label class="early-access-field">
+          <span>Country / nationality</span>
+          <input id="ea-country" name="country" type="text" autocomplete="country-name">
+        </label>
+
+        <label class="early-access-field">
+          <span>Age range</span>
+          <select id="ea-age-range" name="age_range">
+            <option value="">Select one</option>
+            <option value="under_18">Under 18</option>
+            <option value="18_24">18-24</option>
+            <option value="25_34">25-34</option>
+            <option value="35_44">35-44</option>
+            <option value="45_plus">45+</option>
+            <option value="prefer_not_to_say">Prefer not to say</option>
+          </select>
+        </label>
+
+        <label class="early-access-field">
+          <span>Gender</span>
+          <select id="ea-gender" name="gender">
+            <option value="">Select one</option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+            <option value="non_binary">Non-binary</option>
+            <option value="prefer_not_to_say">Prefer not to say</option>
+            <option value="self_describe">Prefer to self-describe</option>
+          </select>
+        </label>
+
+        <label class="early-access-field">
+          <span>Travel status</span>
+          <select id="ea-user-type" name="user_type">
+            <option value="">Select one</option>
+            <option value="tourist">Tourist</option>
+            <option value="exchange_student">Exchange student</option>
+            <option value="local">Local</option>
+            <option value="expat">Expat</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+
+        <label class="early-access-field early-access-field-wide">
+          <span>What should Kandid Spot help with?</span>
+          <textarea id="ea-message" name="message" rows="4" placeholder="Example: quiet Seoul routes, cafe days, night plans, local food..."></textarea>
+        </label>
+
+        <label class="early-access-consent">
+          <input id="ea-consent" name="consent" type="checkbox" required>
+          <span>I agree to be contacted about Kandid Spot early access.</span>
+        </label>
+
+        <div class="early-access-error" id="early-access-error" role="alert" hidden></div>
+
+        <button class="early-access-submit" id="early-access-submit" type="submit">join the list</button>
+      </form>
+
+      <div class="early-access-success" id="early-access-success" hidden>
+        <div class="early-access-kicker">You're on the list.</div>
+        <h3>We'll send early access updates to your inbox.</h3>
+        <button class="early-access-done" id="early-access-done" type="button">back to route</button>
+      </div>
+    </section>
   </aside>
 
   <!-- TOAST -->
