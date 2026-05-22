@@ -360,6 +360,7 @@ const ROUTES = {
 const SUBCATEGORIZED_PLACES_URL = 'data/places/processed/miro_places_subcategorized.json';
 const CURATED_PLACES_URL = 'data/miro_places.json';
 const MOCK_ROUTES_ENABLED = new URLSearchParams(window.location.search).get('mock') === '1';
+const ROUTE_DEBUG_ENABLED = new URLSearchParams(window.location.search).get('route_debug') === '1';
 
 const AREA_FILTERS = {
   myeongdong_euljiro: {
@@ -1215,10 +1216,16 @@ function getPlaceSearchText(place) {
     place.displayName,
     place.categoryName,
     place.categoryCode,
+    place.primaryCategory,
+    place.primaryCategoryLabel,
+    place.subCategory,
+    place.subCategoryLabel,
     place.address,
     place.sourceList,
     place.sourceFile,
     place.sourceType,
+    ...(Array.isArray(place.tags) ? place.tags : []),
+    ...(Array.isArray(place.routeRoles) ? place.routeRoles : []),
   ].filter(Boolean).join(' ').toLowerCase();
 }
 
@@ -1511,6 +1518,163 @@ function getPlaceDistanceM(place, center) {
   return Number.isFinite(km) ? km * 1000 : Infinity;
 }
 
+function getSelectedRouteEstimate(places) {
+  return places.reduce((estimate, place, index) => {
+    const stay = getPlaceStayMinutes(place);
+    const previousPlace = places[index - 1];
+    const mobility = previousPlace
+      ? classifyLegMobility(previousPlace, place, DEFAULT_MAX_WALK_MINUTES)
+      : null;
+    const travel = mobility && Number.isFinite(mobility.estimatedWalkMinutes)
+      ? mobility.estimatedWalkMinutes
+      : 0;
+
+    return {
+      stay: estimate.stay + stay,
+      travel: estimate.travel + travel,
+      total: estimate.total + stay + travel,
+    };
+  }, { stay: 0, travel: 0, total: 0 });
+}
+
+function getProjectedRouteEstimate(place, context) {
+  const selectedEstimate = context.selectedEstimate || { stay: 0, travel: 0, total: 0 };
+  const mobility = context.previousPlace
+    ? classifyLegMobility(context.previousPlace, place, DEFAULT_MAX_WALK_MINUTES)
+    : null;
+  const travel = mobility && Number.isFinite(mobility.estimatedWalkMinutes)
+    ? mobility.estimatedWalkMinutes
+    : 0;
+  const stay = getPlaceStayMinutes(place);
+
+  return {
+    stay: selectedEstimate.stay + stay,
+    travel: selectedEstimate.travel + travel,
+    total: selectedEstimate.total + stay + travel,
+  };
+}
+
+function getDurationFitScore(place, context) {
+  const targetMin = Number(context.timeConfig?.targetMin);
+  if (!Number.isFinite(targetMin) || targetMin <= 0) return 0;
+
+  const projected = getProjectedRouteEstimate(place, context);
+  const stay = getPlaceStayMinutes(place);
+  const idealStay = Math.max(20, targetMin / Math.max(Number(context.timeConfig?.maxStops) || 1, 1));
+  let score = 0;
+
+  if (stay <= idealStay + 10) {
+    score += 4;
+  } else {
+    score -= Math.min((stay - idealStay - 10) * 0.25, 12);
+  }
+
+  const overage = projected.total - targetMin;
+  if (overage > 0) {
+    const multiplier = targetMin <= 60 ? 0.65 : targetMin <= 120 ? 0.45 : 0.22;
+    score -= Math.min(overage * multiplier, targetMin <= 60 ? 35 : 50);
+  } else {
+    score += Math.min(Math.abs(overage) / 20, 4);
+  }
+
+  return score;
+}
+
+function getBacktrackingPenalty(place, context) {
+  const selectedPlaces = Array.isArray(context.selectedPlaces) ? context.selectedPlaces : [];
+  if (selectedPlaces.length < 2 || !context.previousPlace) return 0;
+
+  const previousLegMeters = haversineMeters(context.previousPlace, place);
+  if (!Number.isFinite(previousLegMeters) || previousLegMeters < 600) return 0;
+
+  const revisitsEarlierCluster = selectedPlaces.slice(0, -1).some(selectedPlace => {
+    const distanceToEarlierStop = haversineMeters(selectedPlace, place);
+    return Number.isFinite(distanceToEarlierStop) && distanceToEarlierStop < 300;
+  });
+
+  return revisitsEarlierCluster ? 10 : 0;
+}
+
+function getDataDrivenRefinementScore(place, context, distanceM) {
+  const refinementKey = context.refinementKey;
+  if (!refinementKey) return 0;
+
+  const primaryCategory = place.primaryCategory || getPlacePrimaryCategory(place);
+  const text = getPlaceSearchText(place);
+  const moodRequiresNight = context.moodContext.compositionKeys.includes('drinks_night');
+  const radiusM = getAreaRadiusM(context.areaConfig);
+  let score = 0;
+
+  if (refinementKey === 'walk') {
+    if (Number.isFinite(distanceM)) {
+      score += Math.max(0, 12 * (1 - Math.min(distanceM, radiusM) / radiusM));
+    }
+    if (context.previousPlace) {
+      const mobility = classifyLegMobility(context.previousPlace, place, LESS_WALKING_MAX_WALK_MINUTES);
+      const legMeters = Number(mobility.distanceMeters);
+      if (mobility.isWalkable) score += Math.max(0, 10 - mobility.estimatedWalkMinutes);
+      else score -= 30;
+      if (Number.isFinite(legMeters)) score -= Math.min(legMeters / 100, 24);
+    }
+    if (['walk_nature', 'rest', 'cafe', 'meal'].includes(primaryCategory)) score += 6;
+  }
+
+  if (refinementKey === 'local') {
+    if (textHasAnyTerm(text, LOCAL_TERMS)) score += 22;
+    if (text.includes('main_stop') || text.includes('sub_stop')) score += 5;
+    if (Number(place.sourcePriority) > 0) score += Math.min(Number(place.sourcePriority), 10);
+    if (place.isMatched === true) score += 5;
+    if (!['bar', 'rest'].includes(primaryCategory)) score += 3;
+  }
+
+  if (refinementKey === 'cheap') {
+    if (['meal', 'cafe', 'dessert_bakery', 'walk_nature', 'rest'].includes(primaryCategory)) score += 10;
+    if (textHasAnyTerm(text, BUDGET_CATEGORY_NAMES)) score += 18;
+    if (['bar', 'activity'].includes(primaryCategory) || textHasAnyTerm(text, PREMIUM_CATEGORY_NAMES)) score -= 18;
+  }
+
+  if (refinementKey === 'cafe') {
+    if (primaryCategory === 'cafe') score += 34;
+    if (primaryCategory === 'dessert_bakery') score += 28;
+    if (textHasAnyTerm(text, CAFE_REFINEMENT_TERMS)) score += 14;
+  }
+
+  if (refinementKey === 'quiet') {
+    if (['walk_nature', 'rest'].includes(primaryCategory)) score += 24;
+    if (['cafe', 'landmark_view'].includes(primaryCategory)) score += 12;
+    if (textHasAnyTerm(text, QUIET_TERMS)) score += 18;
+    if (!moodRequiresNight && primaryCategory === 'bar') score -= 26;
+    if (textHasAnyTerm(text, TOURIST_HEAVY_TERMS)) score -= 20;
+  }
+
+  return score;
+}
+
+function getDataDrivenSelectionContext(baseContext, selected, stopIndex, isFinalStop) {
+  return {
+    ...baseContext,
+    stopIndex,
+    isFinalStop,
+    previousPlace: selected[selected.length - 1] || null,
+    selectedPlaces: selected,
+    selectedEstimate: getSelectedRouteEstimate(selected),
+  };
+}
+
+function shouldStopDataDrivenSelection(selected, timeConfig, routePreferences) {
+  if (routePreferences?.shapeSequence?.length) return false;
+  if (selected.length < timeConfig.minStops) return false;
+  if (timeConfig.key === 'time_4_6') return false;
+
+  const estimate = getSelectedRouteEstimate(selected);
+  return estimate.total >= timeConfig.targetMin * 0.9;
+}
+
+function debugRouteRecommendation(event, details = {}) {
+  if (!ROUTE_DEBUG_ENABLED || typeof console.debug !== 'function') return;
+  console.debug(`[Kandid Spot route] ${event}`, details);
+}
+
 function getDataDrivenCandidates(places, areaConfig, timeConfig) {
   const usablePlaces = places.filter(place => (
     place.name
@@ -1576,10 +1740,24 @@ function scoreDataDrivenPlace(place, context) {
   if (selectedPrimaryCount > 0 && !repeatAllowed) score -= selectedPrimaryCount * 30;
 
   if (context.previousPlace) {
-    const mobility = classifyLegMobility(context.previousPlace, place, DEFAULT_MAX_WALK_MINUTES);
-    if (mobility.isWalkable) score += Math.max(0, 8 - mobility.estimatedWalkMinutes * 0.4);
-    else score -= 18;
+    const maxWalkMinutes = context.refinementKey === 'walk'
+      ? LESS_WALKING_MAX_WALK_MINUTES
+      : DEFAULT_MAX_WALK_MINUTES;
+    const mobility = classifyLegMobility(context.previousPlace, place, maxWalkMinutes);
+    const legMeters = Number(mobility.distanceMeters);
+    if (mobility.isWalkable) {
+      score += Math.max(0, 12 - mobility.estimatedWalkMinutes * 0.5);
+    } else {
+      score -= context.refinementKey === 'walk' ? 42 : 24;
+    }
+    if (Number.isFinite(legMeters)) {
+      score -= Math.min(legMeters / 350, context.refinementKey === 'walk' ? 16 : 10);
+    }
   }
+
+  score += getDataDrivenRefinementScore(place, context, distanceM);
+  score += getDurationFitScore(place, context);
+  score -= getBacktrackingPenalty(place, context);
 
   return score;
 }
@@ -1615,6 +1793,8 @@ function enforceDataDrivenRequiredCategory(selected, candidates, context, select
       stopIndex: selected.length,
       isFinalStop: selected.length >= context.timeConfig.maxStops - 1,
       previousPlace: selected[selected.length - 1] || null,
+      selectedPlaces: selected,
+      selectedEstimate: getSelectedRouteEstimate(selected),
     },
     selectedKeys
   );
@@ -1672,6 +1852,8 @@ function enforceDataDrivenPinnedPreferences(
         stopIndex: selected.length,
         isFinalStop: selected.length >= context.timeConfig.maxStops - 1,
         previousPlace: selected[selected.length - 1] || null,
+        selectedPlaces: selected,
+        selectedEstimate: getSelectedRouteEstimate(selected),
       },
       selectedKeys
     );
@@ -1779,36 +1961,53 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
   const moodContext = getMoodContext(mood);
   const areaConfig = getAreaConfig(routeKey, runtimeContext);
   const routePreferences = options.routePreferences || null;
+  const areaCandidates = getDataDrivenCandidates(places, areaConfig, timeConfig);
   const candidates = filterCandidatesForRefinement(
-    getDataDrivenCandidates(places, areaConfig, timeConfig),
+    areaCandidates,
     refinementKey
   );
+  const baseContext = {
+    areaConfig,
+    timeConfig,
+    moodContext,
+    refinementKey,
+    routePreferences,
+  };
   const scoredCandidates = candidates
     .map(place => ({ place, score: scoreDataDrivenPlace(place, {
-      areaConfig,
-      timeConfig,
-      moodContext,
+      ...baseContext,
       categoryCounts: {},
-      refinementKey,
-      routePreferences,
       stopIndex: 0,
       isFinalStop: false,
       previousPlace: null,
+      selectedPlaces: [],
+      selectedEstimate: { stay: 0, travel: 0, total: 0 },
     }) }))
     .filter(item => Number.isFinite(item.score) && item.score > 0)
     .sort((left, right) => right.score - left.score)
     .map(item => item.place);
 
-  console.log('Miro local route diagnostics:', {
+  debugRouteRecommendation('data_driven_candidates', {
     placesLoaded: places.length,
     validCoords: places.filter(hasValidCoords).length,
     area: areaConfig.label,
     radiusM: Math.round(getAreaRadiusM(areaConfig)),
-    candidatesAfterArea: candidates.length,
+    candidatesAfterArea: areaCandidates.length,
+    candidatesAfterRefinementFilter: candidates.length,
     candidatesAfterMoodScoring: scoredCandidates.length,
+    refinementKey,
   });
 
-  if (scoredCandidates.length < timeConfig.minStops) return null;
+  if (scoredCandidates.length < timeConfig.minStops) {
+    debugRouteRecommendation('data_driven_failed', {
+      reason: 'too_few_scored_candidates',
+      scoredCandidates: scoredCandidates.length,
+      minStops: timeConfig.minStops,
+      routeKey,
+      refinementKey,
+    });
+    return null;
+  }
 
   const selected = [];
   const selectedKeys = new Set();
@@ -1816,35 +2015,30 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
   const sequence = getRouteCategorySequence(moodContext, timeConfig, routePreferences);
   const requiredCategories = getMoodRequiredPrimaryCategories(moodContext);
 
-  sequence.slice(0, timeConfig.maxStops).forEach((targetCategory, stopIndex) => {
+  const limitedSequence = sequence.slice(0, timeConfig.maxStops);
+  for (let stopIndex = 0; stopIndex < limitedSequence.length; stopIndex += 1) {
+    if (shouldStopDataDrivenSelection(selected, timeConfig, routePreferences)) break;
+
+    const targetCategory = limitedSequence[stopIndex];
     const place = selectDataDrivenPlace(scoredCandidates, {
-      areaConfig,
-      timeConfig,
-      moodContext,
+      ...getDataDrivenSelectionContext(baseContext, selected, stopIndex, stopIndex === timeConfig.maxStops - 1),
       categoryCounts,
-      refinementKey,
-      routePreferences,
-      stopIndex,
-      isFinalStop: stopIndex === timeConfig.maxStops - 1,
-      previousPlace: selected[selected.length - 1] || null,
     }, selectedKeys, targetCategory);
-    if (!place) return;
+    if (!place) continue;
     selected.push(place);
     selectedKeys.add(getRuntimePlaceKey(place));
     categoryCounts[place.primaryCategory] = (categoryCounts[place.primaryCategory] || 0) + 1;
-  });
+  }
 
   while (selected.length < timeConfig.minStops) {
     const place = selectDataDrivenPlace(scoredCandidates, {
-      areaConfig,
-      timeConfig,
-      moodContext,
+      ...getDataDrivenSelectionContext(
+        baseContext,
+        selected,
+        selected.length,
+        selected.length === timeConfig.maxStops - 1
+      ),
       categoryCounts,
-      refinementKey,
-      routePreferences,
-      stopIndex: selected.length,
-      isFinalStop: selected.length === timeConfig.maxStops - 1,
-      previousPlace: selected[selected.length - 1] || null,
     }, selectedKeys);
     if (!place) break;
     selected.push(place);
@@ -1856,30 +2050,31 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     selected,
     scoredCandidates,
     {
-      areaConfig,
-      timeConfig,
-      moodContext,
+      ...getDataDrivenSelectionContext(baseContext, selected, selected.length, selected.length >= timeConfig.maxStops - 1),
       categoryCounts,
-      refinementKey,
-      routePreferences,
     },
     selectedKeys,
     categoryCounts,
     requiredCategories
   );
 
-  if (!hasRequiredCategory) return null;
+  if (!hasRequiredCategory) {
+    debugRouteRecommendation('data_driven_failed', {
+      reason: 'missing_required_category',
+      requiredCategories,
+      selectedCategories: selected.map(place => place.primaryCategory),
+      routeKey,
+      refinementKey,
+    });
+    return null;
+  }
 
   enforceDataDrivenPinnedPreferences(
     selected,
     candidates,
     {
-      areaConfig,
-      timeConfig,
-      moodContext,
+      ...getDataDrivenSelectionContext(baseContext, selected, selected.length, selected.length >= timeConfig.maxStops - 1),
       categoryCounts,
-      refinementKey,
-      routePreferences,
     },
     selectedKeys,
     categoryCounts,
@@ -1887,7 +2082,16 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     requiredCategories
   );
 
-  if (selected.length < timeConfig.minStops) return null;
+  if (selected.length < timeConfig.minStops) {
+    debugRouteRecommendation('data_driven_failed', {
+      reason: 'too_few_selected_places',
+      selectedCount: selected.length,
+      minStops: timeConfig.minStops,
+      routeKey,
+      refinementKey,
+    });
+    return null;
+  }
 
   const orderedPlaces = routePreferences?.shapeSequence?.length
     ? selected.slice(0, timeConfig.maxStops)
@@ -1902,6 +2106,17 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
   ), 0);
   const stayMinutes = stops.reduce((sum, stop) => sum + Number(stop.stay || 0), 0);
   const distanceMeters = stops.reduce((sum, stop) => sum + Number(stop.legDistanceMeters || 0), 0);
+
+  debugRouteRecommendation('data_driven_succeeded', {
+    routeKey,
+    refinementKey,
+    area: areaConfig.label,
+    time: timeConfig.key,
+    selectedCategories: orderedPlaces.map(place => place.primaryCategory),
+    stopCount: stops.length,
+    estimatedTotalMinutes: stayMinutes + travelMinutes,
+    walkingMinutes,
+  });
 
   return {
     label: areaConfig.label,
@@ -1934,7 +2149,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
 function buildCuratedRoute(routeKey, mood, refinementKey = null, runtimeContext = {}, options = {}) {
   const dataDrivenRoute = buildDataDrivenRoute(routeKey, mood, refinementKey, runtimeContext, options);
   if (dataDrivenRoute) {
-    console.log('Miro route source: local dataset');
+    debugRouteRecommendation('route_source', { routeKey, refinementKey, source: 'local_dataset' });
     return dataDrivenRoute;
   }
 
@@ -2220,19 +2435,27 @@ function resolveRouteForCurrentSelection(routeKey, refinementKey = state.activeR
   }
 
   if (MOCK_ROUTES_ENABLED) {
+    debugRouteRecommendation('fallback_route', { routeKey, refinementKey, reason: 'mock_mode_enabled' });
     return buildMockFallbackRoute(routeKey, 'Using prototype fallback because mock mode is enabled.');
   }
 
   if (curatedPlaceState.failed) {
+    debugRouteRecommendation('fallback_route', { routeKey, refinementKey, reason: 'local_data_load_failed' });
     return buildMockFallbackRoute(routeKey, 'Local place data could not be loaded, so this is a prototype fallback.');
   }
 
   if (!curatedPlaceState.places.length) {
+    debugRouteRecommendation('fallback_route', { routeKey, refinementKey, reason: 'no_local_places_loaded' });
     return buildMockFallbackRoute(routeKey, 'No local places are loaded yet, so this is a prototype fallback.');
   }
 
   const notice = runtimeContext.locationError
     || 'Not enough local dataset places matched this area, time, and mood, so this is a prototype fallback.';
+  debugRouteRecommendation('fallback_route', {
+    routeKey,
+    refinementKey,
+    reason: runtimeContext.locationError ? 'runtime_context_error' : 'not_enough_matching_places',
+  });
   return buildMockFallbackRoute(routeKey, notice);
 }
 
@@ -2272,10 +2495,11 @@ const REFINEMENT_TEMPLATES = {
   local: ['eat', 'cafe', 'walk', 'shop'],
 };
 
-const BUDGET_CATEGORY_NAMES = ['분식', '김밥', '국수', '라면', '라멘', '만두', '백반', '시장', '카페', 'coffee', 'cafe'];
+const BUDGET_CATEGORY_NAMES = ['분식', '김밥', '국수', '라면', '라멘', '만두', '백반', '시장', '포차', '노점', '간식', '스낵', '카페', 'street', 'snack', 'casual', 'bunsik', 'coffee', 'cafe', 'bakery'];
 const PREMIUM_CATEGORY_NAMES = ['오마카세', '파인다이닝', '스테이크', '와인', '칵테일', 'bar', 'pub'];
-const LOCAL_TERMS = ['골목', '동네', '로컬', 'local', 'hidden', '숨은', '찐', '노포', '시장', 'backstreet'];
-const QUIET_TERMS = ['조용', 'quiet', 'calm', '한적', '골목', '산책', '공원', 'walk', 'garden'];
+const LOCAL_TERMS = ['골목', '동네', '로컬', 'local', 'hidden', '숨은', '찐', '노포', '시장', 'backstreet', 'neighborhood', 'indie', 'independent', 'residential', 'locals'];
+const CAFE_REFINEMENT_TERMS = ['카페', '커피', '디저트', '베이커리', '차', 'coffee', 'cafe', 'dessert', 'bakery', 'tea', 'roast'];
+const QUIET_TERMS = ['조용', 'quiet', 'calm', '한적', '골목', '산책', '공원', 'walk', 'garden', 'study', 'reading', 'book', '책', 'rest'];
 const TOURIST_HEAVY_TERMS = ['핫플', '명소', '랜드마크', '관광', 'tour', 'tourist', 'famous', 'club', '클럽', '대형', '몰', '백화점'];
 const OPEN_NOW_FIELD_PATHS = [
   ['openNow'],
