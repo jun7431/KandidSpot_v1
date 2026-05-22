@@ -54,7 +54,7 @@ const ROUTES = {
         walk: 7,
         coords: { lat: 37.55819, lng: 126.92585 },
         why: 'A vinyl shop the size of a closet, run by a 90s indie-club veteran. Free to browse.',
-        next: 'Route complete · subway 4 min away',
+        next: 'Route complete',
         tags: ['🎵 indie', '🗝️ hidden', '🆓 browse'],
       },
     ],
@@ -1663,7 +1663,7 @@ function getDataDrivenSelectionContext(baseContext, selected, stopIndex, isFinal
 
 function getUxSafeMinimumStopCount(timeConfig, candidateCount = Infinity) {
   const desiredStopsByTime = {
-    time_30_60: 1,
+    time_30_60: 2,
     time_1_2: 2,
     time_2_3: 3,
     time_4_6: 4,
@@ -2770,8 +2770,8 @@ function renderStops() {
     item.className = 'stop';
     item.innerHTML = `
       <div class="stop-body">
-        <div class="stop-name">No matching real places found</div>
-        <div class="stop-type">Try another area or mood once the real places dataset is loaded.</div>
+        <div class="stop-name">No matching places found</div>
+        <div class="stop-type">Try a different area, mood, or duration.</div>
       </div>
     `;
     list.appendChild(item);
@@ -2802,9 +2802,6 @@ function renderStops() {
     const actions = [];
     const providerOpenAction = renderProviderOpenButton(place, s.name, activeProvider);
     if (providerOpenAction) actions.push(providerOpenAction);
-    actions.push(
-      `<button class="ks-stop-link ks-stop-replace" type="button" disabled aria-disabled="true" title="Coming soon">↻ Replace</button>`
-    );
 
     item.innerHTML = `
       <div class="stop-num-col">
