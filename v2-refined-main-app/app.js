@@ -1554,11 +1554,22 @@ function getProjectedRouteEstimate(place, context) {
   };
 }
 
+function getDurationSoftCapMin(timeConfig) {
+  const capsByTime = {
+    time_30_60: 75,
+    time_1_2: 150,
+    time_2_3: 210,
+    time_4_6: 390,
+  };
+  return capsByTime[timeConfig?.key] || Number(timeConfig?.targetMin) || Infinity;
+}
+
 function getDurationFitScore(place, context) {
   const targetMin = Number(context.timeConfig?.targetMin);
   if (!Number.isFinite(targetMin) || targetMin <= 0) return 0;
 
   const projected = getProjectedRouteEstimate(place, context);
+  const capMin = getDurationSoftCapMin(context.timeConfig);
   const stay = getPlaceStayMinutes(place);
   const idealStay = Math.max(20, targetMin / Math.max(Number(context.timeConfig?.maxStops) || 1, 1));
   let score = 0;
@@ -1575,6 +1586,14 @@ function getDurationFitScore(place, context) {
     score -= Math.min(overage * multiplier, targetMin <= 60 ? 35 : 50);
   } else {
     score += Math.min(Math.abs(overage) / 20, 4);
+  }
+
+  const capOverage = projected.total - capMin;
+  if (capOverage > 0) {
+    const capMultiplier = targetMin <= 60 ? 1.6 : targetMin <= 120 ? 1.2 : targetMin <= 180 ? 0.85 : 0.45;
+    score -= Math.min(capOverage * capMultiplier, targetMin <= 60 ? 80 : 110);
+  } else {
+    score += Math.min((capMin - projected.total) / 30, 5);
   }
 
   return score;
@@ -1663,7 +1682,7 @@ function getDataDrivenSelectionContext(baseContext, selected, stopIndex, isFinal
 
 function getUxSafeMinimumStopCount(timeConfig, candidateCount = Infinity) {
   const desiredStopsByTime = {
-    time_30_60: 2,
+    time_30_60: 1,
     time_1_2: 2,
     time_2_3: 3,
     time_4_6: 4,
@@ -1686,7 +1705,55 @@ function shouldStopDataDrivenSelection(selected, timeConfig, routePreferences, u
   if (timeConfig.key === 'time_4_6') return false;
 
   const estimate = getSelectedRouteEstimate(selected);
-  return estimate.total >= timeConfig.targetMin * 0.9;
+  return estimate.total >= Math.min(timeConfig.targetMin * 0.9, getDurationSoftCapMin(timeConfig));
+}
+
+function syncDataDrivenSelectionState(selected, selectedKeys, categoryCounts) {
+  selectedKeys.clear();
+  Object.keys(categoryCounts).forEach(key => {
+    delete categoryCounts[key];
+  });
+
+  selected.forEach(place => {
+    selectedKeys.add(getRuntimePlaceKey(place));
+    categoryCounts[place.primaryCategory] = (categoryCounts[place.primaryCategory] || 0) + 1;
+  });
+}
+
+function canRemoveDataDrivenPlace(selected, index, requiredCategories, routePreferences) {
+  const place = selected[index];
+  const primaryCategory = getPlacePrimaryCategory(place);
+  if (routePreferences?.pinCategories?.includes(primaryCategory)) return false;
+
+  const remaining = selected.filter((_, placeIndex) => placeIndex !== index);
+  return hasRequiredPrimaryCategory(remaining, requiredCategories);
+}
+
+function trimDataDrivenRouteToDurationCap(selected, timeConfig, requiredCategories, routePreferences, selectedKeys, categoryCounts) {
+  if (routePreferences?.shapeSequence?.length) return;
+
+  const capMin = getDurationSoftCapMin(timeConfig);
+  if (!Number.isFinite(capMin)) return;
+
+  while (selected.length > 1 && getSelectedRouteEstimate(selected).total > capMin) {
+    let bestIndex = -1;
+    let bestTotal = Infinity;
+
+    selected.forEach((place, index) => {
+      if (!canRemoveDataDrivenPlace(selected, index, requiredCategories, routePreferences)) return;
+
+      const remaining = selected.filter((_, placeIndex) => placeIndex !== index);
+      const total = getSelectedRouteEstimate(remaining).total;
+      if (total < bestTotal) {
+        bestTotal = total;
+        bestIndex = index;
+      }
+    });
+
+    if (bestIndex === -1) break;
+    selected.splice(bestIndex, 1);
+    syncDataDrivenSelectionState(selected, selectedKeys, categoryCounts);
+  }
 }
 
 function debugRouteRecommendation(event, details = {}) {
@@ -1788,14 +1855,32 @@ function selectDataDrivenPlace(candidates, context, selectedKeys, targetCategory
   const usablePool = pool.length ? pool : candidates;
   let best = null;
   let bestScore = -Infinity;
+  const ranked = [];
 
   usablePool.forEach(place => {
     const key = getRuntimePlaceKey(place);
     if (selectedKeys.has(key)) return;
     const score = scoreDataDrivenPlace(place, { ...context, targetCategory });
+    const projected = getProjectedRouteEstimate(place, context);
+    const fitsDuration = !Number.isFinite(Number(context.durationCapMin)) ||
+      projected.total <= Number(context.durationCapMin);
+    if (Number.isFinite(score)) ranked.push({ place, score, projectedTotal: projected.total, fitsDuration });
+  });
+
+  const durationFitPool = ranked.filter(item => item.fitsDuration);
+  const finalPool = durationFitPool.length
+    ? durationFitPool
+    : context.allowDurationOverCap === false
+      ? []
+      : ranked;
+
+  finalPool.forEach(item => {
+    const { place, score, projectedTotal } = item;
     if (score > bestScore) {
       best = place;
       bestScore = score;
+    } else if (score === bestScore && projectedTotal < getProjectedRouteEstimate(best, context).total) {
+      best = place;
     }
   });
 
@@ -1991,6 +2076,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     moodContext,
     refinementKey,
     routePreferences,
+    durationCapMin: getDurationSoftCapMin(timeConfig),
   };
   const scoredCandidates = candidates
     .map(place => ({ place, score: scoreDataDrivenPlace(place, {
@@ -2016,6 +2102,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     candidatesAfterRefinementFilter: candidates.length,
     candidatesAfterMoodScoring: scoredCandidates.length,
     uxMinStops,
+    durationCapMin: baseContext.durationCapMin,
     refinementKey,
   });
 
@@ -2090,6 +2177,31 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     return null;
   }
 
+  trimDataDrivenRouteToDurationCap(
+    selected,
+    timeConfig,
+    requiredCategories,
+    routePreferences,
+    selectedKeys,
+    categoryCounts
+  );
+
+  while (selected.length < uxMinStops) {
+    const place = selectDataDrivenPlace(scoredCandidates, {
+      ...getDataDrivenSelectionContext(
+        baseContext,
+        selected,
+        selected.length,
+        selected.length === timeConfig.maxStops - 1
+      ),
+      categoryCounts,
+      allowDurationOverCap: false,
+    }, selectedKeys);
+    if (!place) break;
+    selected.push(place);
+    syncDataDrivenSelectionState(selected, selectedKeys, categoryCounts);
+  }
+
   enforceDataDrivenPinnedPreferences(
     selected,
     candidates,
@@ -2103,11 +2215,22 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     requiredCategories
   );
 
-  if (selected.length < uxMinStops) {
+  trimDataDrivenRouteToDurationCap(
+    selected,
+    timeConfig,
+    requiredCategories,
+    routePreferences,
+    selectedKeys,
+    categoryCounts
+  );
+
+  const minimumViableStops = Math.min(scoredCandidates.length, 1);
+  if (selected.length < minimumViableStops) {
     debugRouteRecommendation('data_driven_failed', {
       reason: 'too_few_selected_places',
       selectedCount: selected.length,
-      minStops: uxMinStops,
+      minStops: minimumViableStops,
+      uxMinStops,
       configuredMinStops: timeConfig.minStops,
       routeKey,
       refinementKey,
@@ -2137,6 +2260,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     selectedCategories: orderedPlaces.map(place => place.primaryCategory),
     stopCount: stops.length,
     uxMinStops,
+    durationCapMin: baseContext.durationCapMin,
     estimatedTotalMinutes: stayMinutes + travelMinutes,
     walkingMinutes,
   });
@@ -2848,7 +2972,11 @@ function getActiveMapProvider() {
 
 function getProviderOpenLink(place = {}, fallbackName, provider = getActiveMapProvider()) {
   if (provider === 'naver') {
-    const naverUrl = typeof place.naverMapUrl === 'string' ? place.naverMapUrl.trim() : '';
+    const naverUrl = typeof place.naverMapUrl === 'string' && place.naverMapUrl.trim()
+      ? place.naverMapUrl.trim()
+      : hasValidKoreaCoord(place)
+        ? buildNaverWalkingDirectionsUrl([place])
+        : '';
     return naverUrl ? { source: 'naver', mark: 'N', label: 'Open in Naver', url: naverUrl } : null;
   }
 
