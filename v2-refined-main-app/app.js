@@ -2791,7 +2791,6 @@ function renderStops() {
       <div class="stop-body">
         <span class="ks-stop-role">${escapeHtml(roleLabel)}</span>
         <div class="stop-name">${escapeHtml(s.name)}</div>
-        <div class="stop-type">${escapeHtml(s.type)}</div>
         ${why ? `<div class="ks-stop-why">${escapeHtml(why)}</div>` : ''}
         <div class="stop-meta">
           <span class="stop-tag">⏱ ${s.stay} min</span>
