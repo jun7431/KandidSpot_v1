@@ -2970,27 +2970,39 @@ function getActiveMapProvider() {
   return MAP_PROVIDERS.has(mapProviderState.active) ? mapProviderState.active : 'kakao';
 }
 
+function isNaverPlaceDetailUrl(url) {
+  if (typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  if (/\/p\/directions\//i.test(trimmed)) return false;
+  return /\/p\/entry\/place\//i.test(trimmed) || /\/p\/search\//i.test(trimmed);
+}
+
+function buildStopSearchQuery(place = {}, fallbackName) {
+  const name = String(place.displayName || place.name || fallbackName || '').trim();
+  const address = String(place.address || '').trim();
+  if (!name && !address) return '';
+  return [name, address].filter(Boolean).join(' ');
+}
+
+function buildStopMapSearchUrl(place = {}, fallbackName, provider) {
+  if (provider === 'naver') {
+    if (isNaverPlaceDetailUrl(place.naverMapUrl)) return place.naverMapUrl.trim();
+    const query = buildStopSearchQuery(place, fallbackName);
+    return query ? `https://map.naver.com/p/search/${encodeURIComponent(query)}` : '';
+  }
+  const query = buildStopSearchQuery(place, fallbackName);
+  return query ? `https://map.kakao.com/link/search/${encodeURIComponent(query)}` : '';
+}
+
 function getProviderOpenLink(place = {}, fallbackName, provider = getActiveMapProvider()) {
   if (provider === 'naver') {
-    const naverUrl = typeof place.naverMapUrl === 'string' && place.naverMapUrl.trim()
-      ? place.naverMapUrl.trim()
-      : hasValidKoreaCoord(place)
-        ? buildNaverWalkingDirectionsUrl([place])
-        : '';
-    return naverUrl ? { source: 'naver', mark: 'N', label: 'Open in Naver', url: naverUrl } : null;
+    const url = buildStopMapSearchUrl(place, fallbackName, 'naver');
+    return url ? { source: 'naver', mark: 'N', label: 'Open in Naver', url } : null;
   }
 
-  const lat = Number(place.lat);
-  const lng = Number(place.lng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-
-  const placeLabel = place.displayName || place.name || fallbackName || 'Place';
-  return {
-    source: 'kakao',
-    mark: 'K',
-    label: 'Open in Kakao',
-    url: `https://map.kakao.com/link/map/${encodeURIComponent(placeLabel)},${lat},${lng}`,
-  };
+  const url = buildStopMapSearchUrl(place, fallbackName, 'kakao');
+  return url ? { source: 'kakao', mark: 'K', label: 'Open in Kakao', url } : null;
 }
 
 function renderProviderOpenButton(place = {}, fallbackName, provider = getActiveMapProvider()) {
