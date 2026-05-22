@@ -192,7 +192,33 @@ async function insertSignup(signup) {
   try {
     response = await postJson(config.endpoint, headers, body);
   } catch (error) {
-    console.warn('[early-access] Supabase insert request failed:', error.message);
+    let supabaseHost = '';
+    try {
+      supabaseHost = new URL(config.endpoint).hostname;
+    } catch (urlError) {
+      supabaseHost = 'unavailable';
+    }
+
+    console.warn('[early-access] Supabase fetch failed diagnostic:', {
+      errorName: error?.name,
+      errorMessage: error?.message,
+      errorCode: error?.code,
+      errorErrno: error?.errno,
+      errorSyscall: error?.syscall,
+      errorHostname: error?.hostname,
+      causeName: error?.cause?.name,
+      causeMessage: error?.cause?.message,
+      causeCode: error?.cause?.code,
+      causeErrno: error?.cause?.errno,
+      causeSyscall: error?.cause?.syscall,
+      causeHostname: error?.cause?.hostname,
+      supabaseHost,
+      hasSupabaseUrl: Boolean(process.env.SUPABASE_URL),
+      hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      serviceRoleKeyLength: process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? String(process.env.SUPABASE_SERVICE_ROLE_KEY).length
+        : 0,
+    });
     return {
       ok: false,
       status: 502,
