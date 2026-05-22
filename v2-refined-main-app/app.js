@@ -1661,9 +1661,28 @@ function getDataDrivenSelectionContext(baseContext, selected, stopIndex, isFinal
   };
 }
 
-function shouldStopDataDrivenSelection(selected, timeConfig, routePreferences) {
+function getUxSafeMinimumStopCount(timeConfig, candidateCount = Infinity) {
+  const desiredStopsByTime = {
+    time_30_60: 1,
+    time_1_2: 2,
+    time_2_3: 3,
+    time_4_6: 4,
+  };
+  const desiredStops = desiredStopsByTime[timeConfig.key] || timeConfig.minStops;
+  const candidateLimit = Number.isFinite(candidateCount)
+    ? Math.max(0, Number(candidateCount))
+    : timeConfig.maxStops;
+
+  return Math.min(
+    Math.max(timeConfig.minStops, desiredStops),
+    timeConfig.maxStops,
+    candidateLimit
+  );
+}
+
+function shouldStopDataDrivenSelection(selected, timeConfig, routePreferences, uxMinStops = timeConfig.minStops) {
   if (routePreferences?.shapeSequence?.length) return false;
-  if (selected.length < timeConfig.minStops) return false;
+  if (selected.length < uxMinStops) return false;
   if (timeConfig.key === 'time_4_6') return false;
 
   const estimate = getSelectedRouteEstimate(selected);
@@ -1986,6 +2005,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     .filter(item => Number.isFinite(item.score) && item.score > 0)
     .sort((left, right) => right.score - left.score)
     .map(item => item.place);
+  const uxMinStops = getUxSafeMinimumStopCount(timeConfig, scoredCandidates.length);
 
   debugRouteRecommendation('data_driven_candidates', {
     placesLoaded: places.length,
@@ -1995,6 +2015,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     candidatesAfterArea: areaCandidates.length,
     candidatesAfterRefinementFilter: candidates.length,
     candidatesAfterMoodScoring: scoredCandidates.length,
+    uxMinStops,
     refinementKey,
   });
 
@@ -2017,7 +2038,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
 
   const limitedSequence = sequence.slice(0, timeConfig.maxStops);
   for (let stopIndex = 0; stopIndex < limitedSequence.length; stopIndex += 1) {
-    if (shouldStopDataDrivenSelection(selected, timeConfig, routePreferences)) break;
+    if (shouldStopDataDrivenSelection(selected, timeConfig, routePreferences, uxMinStops)) break;
 
     const targetCategory = limitedSequence[stopIndex];
     const place = selectDataDrivenPlace(scoredCandidates, {
@@ -2030,7 +2051,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     categoryCounts[place.primaryCategory] = (categoryCounts[place.primaryCategory] || 0) + 1;
   }
 
-  while (selected.length < timeConfig.minStops) {
+  while (selected.length < uxMinStops) {
     const place = selectDataDrivenPlace(scoredCandidates, {
       ...getDataDrivenSelectionContext(
         baseContext,
@@ -2082,11 +2103,12 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     requiredCategories
   );
 
-  if (selected.length < timeConfig.minStops) {
+  if (selected.length < uxMinStops) {
     debugRouteRecommendation('data_driven_failed', {
       reason: 'too_few_selected_places',
       selectedCount: selected.length,
-      minStops: timeConfig.minStops,
+      minStops: uxMinStops,
+      configuredMinStops: timeConfig.minStops,
       routeKey,
       refinementKey,
     });
@@ -2114,6 +2136,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementKey = null, runtimeConte
     time: timeConfig.key,
     selectedCategories: orderedPlaces.map(place => place.primaryCategory),
     stopCount: stops.length,
+    uxMinStops,
     estimatedTotalMinutes: stayMinutes + travelMinutes,
     walkingMinutes,
   });
