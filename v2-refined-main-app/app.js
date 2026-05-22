@@ -2928,9 +2928,34 @@ function getPreviousOverlapPenalty(place, context) {
   if (!set || !set.size) return 0;
   const id = getCandidateIdentity(place);
   if (!id || !set.has(id)) return 0;
-  const baseStrength = getOverlapPenaltyStrength(context.refinementKeys?.length || 0);
+  const keys = context.refinementKeys || [];
   const multiplier = Number(context.previousRouteOverlapMultiplier) || 1;
+  if (keys.includes('walk')) {
+    const walkCap = keys.length === 1 ? 4 : 12;
+    return walkCap * multiplier;
+  }
+  const baseStrength = getOverlapPenaltyStrength(keys.length);
   return baseStrength * multiplier;
+}
+
+function estimateRouteWalkingMeters(route) {
+  if (!route || !Array.isArray(route.stops) || route.stops.length < 2) return 0;
+  let total = 0;
+  for (let i = 1; i < route.stops.length; i += 1) {
+    const stop = route.stops[i];
+    const stored = Number(stop?.legDistanceMeters);
+    if (Number.isFinite(stored) && stored > 0) {
+      total += stored;
+      continue;
+    }
+    const prevCoords = route.stops[i - 1]?.coords;
+    const curCoords = stop?.coords;
+    if (prevCoords && curCoords) {
+      const d = haversineMeters(prevCoords, curCoords);
+      if (Number.isFinite(d)) total += d;
+    }
+  }
+  return total;
 }
 
 let currentRoute = null;
@@ -4777,18 +4802,43 @@ function applyRefinement(key) {
       return;
     }
 
+    const walkActive = nextActive.includes('walk');
     let identical = previousRoute && isSameStopSet(refinedRoute, previousRoute);
-    if (identical) {
-      const retry = buildCuratedRoute(
+    let walkSanityFailed = false;
+
+    if (walkActive && previousRoute) {
+      const previousWalking = estimateRouteWalkingMeters(previousRoute);
+      const initialWalking = estimateRouteWalkingMeters(refinedRoute);
+      const threshold = Math.max(50, previousWalking * 0.1);
+      if (previousWalking > 0 && initialWalking > previousWalking + threshold) {
+        const compactRetry = buildCuratedRoute(
+          routeKey,
+          state.mood,
+          nextActive,
+          runtimeContext,
+          { routePreferences, previousRoute, previousRouteOverlapMultiplier: 0 }
+        );
+        if (compactRetry && compactRetry.stops.length) {
+          const retryWalking = estimateRouteWalkingMeters(compactRetry);
+          if (retryWalking <= initialWalking) {
+            refinedRoute = compactRetry;
+          }
+        }
+        const finalWalking = estimateRouteWalkingMeters(refinedRoute);
+        walkSanityFailed = finalWalking > previousWalking + threshold;
+        identical = previousRoute && isSameStopSet(refinedRoute, previousRoute);
+      }
+    } else if (identical) {
+      const noveltyRetry = buildCuratedRoute(
         routeKey,
         state.mood,
         nextActive,
         runtimeContext,
         { routePreferences, previousRoute, previousRouteOverlapMultiplier: 2 }
       );
-      if (retry && retry.stops.length) {
-        refinedRoute = retry;
-        identical = previousRoute && isSameStopSet(retry, previousRoute);
+      if (noveltyRetry && noveltyRetry.stops.length) {
+        refinedRoute = noveltyRetry;
+        identical = previousRoute && isSameStopSet(noveltyRetry, previousRoute);
       }
     }
 
@@ -4798,7 +4848,9 @@ function applyRefinement(key) {
     updateRefineSummary();
     applyResolvedRoute(refinedRoute);
 
-    if (identical) {
+    if (walkSanityFailed) {
+      showToast('Nearby alternatives are limited, so this route may not reduce walking much.');
+    } else if (identical && !walkActive) {
       showToast('Not enough nearby alternatives to change the route much.');
     } else if (openNotice) {
       showToast(openNotice);
