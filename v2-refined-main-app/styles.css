@@ -2580,6 +2580,7 @@ a:focus-visible {
 
 .early-access-success {
   max-width: 520px;
+  margin-top: 24px;
 }
 
 .early-access-success .early-access-kicker {
