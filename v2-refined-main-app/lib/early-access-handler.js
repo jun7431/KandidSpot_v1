@@ -1,3 +1,5 @@
+const https = require('https');
+
 const MAX_BODY_BYTES = 16 * 1024;
 const SUPABASE_TABLE = 'early_access_signups';
 
@@ -8,6 +10,14 @@ function sendJson(response, statusCode, payload) {
 }
 
 function readRequestBody(request) {
+  if (Buffer.isBuffer(request.body)) {
+    if (request.body.length > MAX_BODY_BYTES) {
+      return Promise.reject(new Error('Request body is too large'));
+    }
+    const rawBody = request.body.toString('utf8');
+    return Promise.resolve(rawBody.trim() ? JSON.parse(rawBody) : {});
+  }
+
   if (request.body && typeof request.body === 'object') {
     return Promise.resolve(request.body);
   }
@@ -97,9 +107,9 @@ function validateSignup(signup) {
   return '';
 }
 
-async function insertSignup(signup) {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+function resolveSupabaseEndpoint() {
+  const supabaseUrl = String(process.env.SUPABASE_URL || '').trim().replace(/^["']|["']$/g, '');
+  const serviceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim().replace(/^["']|["']$/g, '');
 
   if (!supabaseUrl || !serviceRoleKey) {
     return {
@@ -109,17 +119,86 @@ async function insertSignup(signup) {
     };
   }
 
-  const endpoint = `${supabaseUrl.replace(/\/+$/, '')}/rest/v1/${SUPABASE_TABLE}`;
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'return=minimal',
-    },
-    body: JSON.stringify(signup),
+  const normalizedUrl = supabaseUrl
+    .replace(/\/rest\/v1\/?$/i, '')
+    .replace(/\/+$/, '');
+
+  try {
+    const endpoint = new URL(`/rest/v1/${SUPABASE_TABLE}`, normalizedUrl);
+    return {
+      ok: true,
+      endpoint: endpoint.toString(),
+      serviceRoleKey,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 500,
+      error: 'Supabase URL is not configured correctly.',
+    };
+  }
+}
+
+function postJsonWithHttps(endpoint, headers, body) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(endpoint);
+    const request = https.request({
+      method: 'POST',
+      hostname: url.hostname,
+      path: `${url.pathname}${url.search}`,
+      headers,
+    }, response => {
+      response.resume();
+      response.on('end', () => {
+        resolve({
+          ok: response.statusCode >= 200 && response.statusCode < 300,
+          status: response.statusCode,
+        });
+      });
+    });
+
+    request.on('error', reject);
+    request.write(body);
+    request.end();
   });
+}
+
+function postJson(endpoint, headers, body) {
+  if (typeof fetch === 'function') {
+    return fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body,
+    });
+  }
+
+  return postJsonWithHttps(endpoint, headers, body);
+}
+
+async function insertSignup(signup) {
+  const config = resolveSupabaseEndpoint();
+  if (!config.ok) return config;
+
+  const body = JSON.stringify(signup);
+  const headers = {
+    apikey: config.serviceRoleKey,
+    Authorization: `Bearer ${config.serviceRoleKey}`,
+    'Content-Type': 'application/json',
+    'Content-Length': String(Buffer.byteLength(body)),
+    Prefer: 'return=minimal',
+  };
+
+  let response;
+  try {
+    response = await postJson(config.endpoint, headers, body);
+  } catch (error) {
+    console.warn('[early-access] Supabase insert request failed:', error.message);
+    return {
+      ok: false,
+      status: 502,
+      error: 'Could not reach Supabase right now.',
+    };
+  }
 
   if (response.ok) {
     return { ok: true };
