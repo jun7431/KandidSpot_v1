@@ -3557,16 +3557,18 @@ function buildStopMapSearchUrl(place = {}, fallbackName, provider) {
     return query ? `https://map.naver.com/p/search/${encodeURIComponent(query)}` : '';
   }
   if (provider === 'google') {
+    const query = buildStopSearchQuery(place, fallbackName);
+    if (query) {
+      const enriched = /seoul/i.test(query) ? query : `${query} Seoul`;
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(enriched)}`;
+    }
     const lat = getPlaceLat(place);
     const lng = getPlaceLng(place);
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
       const coordQuery = `${formatMapCoord(lat)},${formatMapCoord(lng)}`;
       return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordQuery)}`;
     }
-    const query = buildStopSearchQuery(place, fallbackName);
-    if (!query) return '';
-    const enriched = /seoul/i.test(query) ? query : `${query} Seoul`;
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(enriched)}`;
+    return '';
   }
   const query = buildStopSearchQuery(place, fallbackName);
   return query ? `https://map.kakao.com/link/search/${encodeURIComponent(query)}` : '';
