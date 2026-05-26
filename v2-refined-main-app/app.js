@@ -3515,7 +3515,7 @@ function renderStops() {
 
 // ========== Map Providers ==========
 const MAP_PROVIDER_STORAGE_KEY = 'miro_map_provider';
-const MAP_PROVIDERS = new Set(['kakao', 'naver']);
+const MAP_PROVIDERS = new Set(['kakao', 'naver', 'google']);
 
 function getInitialMapProvider() {
   try {
@@ -3556,6 +3556,12 @@ function buildStopMapSearchUrl(place = {}, fallbackName, provider) {
     const query = buildStopSearchQuery(place, fallbackName);
     return query ? `https://map.naver.com/p/search/${encodeURIComponent(query)}` : '';
   }
+  if (provider === 'google') {
+    const query = buildStopSearchQuery(place, fallbackName);
+    if (!query) return '';
+    const enriched = /seoul/i.test(query) ? query : `${query} Seoul`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(enriched)}`;
+  }
   const query = buildStopSearchQuery(place, fallbackName);
   return query ? `https://map.kakao.com/link/search/${encodeURIComponent(query)}` : '';
 }
@@ -3564,6 +3570,11 @@ function getProviderOpenLink(place = {}, fallbackName, provider = getActiveMapPr
   if (provider === 'naver') {
     const url = buildStopMapSearchUrl(place, fallbackName, 'naver');
     return url ? { source: 'naver', mark: 'N', label: 'Open in Naver', url } : null;
+  }
+
+  if (provider === 'google') {
+    const url = buildStopMapSearchUrl(place, fallbackName, 'google');
+    return url ? { source: 'google', mark: 'G', label: 'Open in Google', url } : null;
   }
 
   const url = buildStopMapSearchUrl(place, fallbackName, 'kakao');
@@ -3712,6 +3723,10 @@ function ensureActiveMap(options = {}) {
     ensureNaverMap(0, options);
     return;
   }
+  if (mapProviderState.active === 'google') {
+    renderGoogleMapFallback();
+    return;
+  }
   ensureKakaoMap(options);
 }
 
@@ -3720,7 +3735,18 @@ function renderActiveMapRoute({ fit = false, routeToken = routeRenderToken } = {
     renderNaverRoute({ fit, routeToken });
     return;
   }
+  if (mapProviderState.active === 'google') {
+    renderGoogleMapFallback();
+    return;
+  }
   renderKakaoRoute({ fit, routeToken });
+}
+
+function renderGoogleMapFallback() {
+  const mapEl = getMapElement();
+  if (!mapEl) return;
+  if (mapEl.querySelector('.map-google-fallback')) return;
+  mapEl.innerHTML = '<div class="map-google-fallback"><span>Open this route in Google Maps.</span></div>';
 }
 
 function setMapProvider(provider) {
@@ -4909,6 +4935,7 @@ function bindMapProviderControls() {
 
 function bindMapControls() {
   document.getElementById('map-zoom-in').addEventListener('click', () => {
+    if (mapProviderState.active === 'google') return;
     if (mapProviderState.active === 'naver') {
       if (!naverMapState.map) {
         ensureNaverMap();
@@ -4926,6 +4953,7 @@ function bindMapControls() {
   });
 
   document.getElementById('map-zoom-out').addEventListener('click', () => {
+    if (mapProviderState.active === 'google') return;
     if (mapProviderState.active === 'naver') {
       if (!naverMapState.map) {
         ensureNaverMap();
@@ -4943,6 +4971,10 @@ function bindMapControls() {
   });
 
   document.getElementById('map-center-route').addEventListener('click', () => {
+    if (mapProviderState.active === 'google') {
+      openCurrentRouteInMap();
+      return;
+    }
     if (mapProviderState.active === 'naver') {
       if (!naverMapState.map) {
         ensureNaverMap();
@@ -5508,9 +5540,44 @@ function buildNaverWalkingDirectionsUrl(routePlaces) {
   return `https://map.naver.com/p/directions/${routePath}/-/walk?c=${centerQuery}`;
 }
 
+function encodeGoogleRouteStop(place) {
+  const lat = getPlaceLat(place);
+  const lng = getPlaceLng(place);
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    return `${formatMapCoord(lat)},${formatMapCoord(lng)}`;
+  }
+  const name = getPlaceName(place);
+  if (!name) return '';
+  return /seoul/i.test(name) ? name : `${name} Seoul`;
+}
+
+function buildGoogleWalkingDirectionsUrl(routePlaces) {
+  if (!routePlaces.length) return '';
+  if (routePlaces.length === 1) {
+    const query = encodeGoogleRouteStop(routePlaces[0]);
+    if (!query) return '';
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+  const segments = routePlaces.map(encodeGoogleRouteStop).filter(Boolean);
+  if (segments.length < 2) return '';
+  const origin = segments[0];
+  const destination = segments[segments.length - 1];
+  const waypoints = segments.slice(1, -1).join('|');
+  const params = [
+    `origin=${encodeURIComponent(origin)}`,
+    `destination=${encodeURIComponent(destination)}`,
+    waypoints ? `waypoints=${encodeURIComponent(waypoints)}` : '',
+    'travelmode=walking',
+  ].filter(Boolean).join('&');
+  return `https://www.google.com/maps/dir/?api=1&${params}`;
+}
+
 function buildExternalMapUrl(routePlaces, provider = 'naver') {
   if (provider === 'kakao') {
     return buildKakaoWalkingDirectionsUrl(routePlaces);
+  }
+  if (provider === 'google') {
+    return buildGoogleWalkingDirectionsUrl(routePlaces);
   }
   return buildNaverWalkingDirectionsUrl(routePlaces);
 }
@@ -5537,7 +5604,8 @@ function openCurrentRouteInMap() {
     return;
   }
 
-  showToast(`Opening ${provider === 'naver' ? 'Naver' : 'Kakao'} Map walking directions…`);
+  const providerLabel = provider === 'naver' ? 'Naver' : provider === 'google' ? 'Google' : 'Kakao';
+  showToast(`Opening ${providerLabel} Map walking directions…`);
 }
 
 document.querySelectorAll('.act-btn').forEach(btn => {

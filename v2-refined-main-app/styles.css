@@ -1726,6 +1726,19 @@ input { font-family: inherit; }
 }
 .ks-stop-link[data-source="naver"] .ks-link-mark { background: #03C75A; }
 .ks-stop-link[data-source="kakao"] .ks-link-mark { background: #FAE100; color: #111; }
+.ks-stop-link[data-source="google"] .ks-link-mark { background: #4285F4; }
+
+.map-google-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  color: var(--gray);
+  font-size: 13px;
+}
 
 /* Import teaser card */
 .ks-import {
@@ -3195,6 +3208,11 @@ a:focus-visible {
 
 .map-provider-btn.active[data-map-provider="naver"] {
   background: #03C75A;
+}
+
+.map-provider-btn.active[data-map-provider="google"] {
+  background: #4285F4;
+  color: #fff;
 }
 
 .map-ctrl {
