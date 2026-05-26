@@ -5546,10 +5546,51 @@ function buildNaverWalkingDirectionsUrl(routePlaces) {
   return `https://map.naver.com/p/directions/${routePath}/-/walk?c=${centerQuery}`;
 }
 
-function encodeGoogleRouteStop(place) {
+// Broad Seoul service bounds + walkable outlier threshold for the route-level
+// Google URL. Per-stop links are not gated by these — they only guard the
+// multi-stop directions URL from being polluted by bad/outlier coordinates.
+const GOOGLE_ROUTE_LAT_MIN = 37.35;
+const GOOGLE_ROUTE_LAT_MAX = 37.75;
+const GOOGLE_ROUTE_LNG_MIN = 126.70;
+const GOOGLE_ROUTE_LNG_MAX = 127.25;
+const GOOGLE_ROUTE_OUTLIER_KM = 10;
+
+function isGoogleRouteCoordInSeoulBounds(lat, lng) {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= GOOGLE_ROUTE_LAT_MIN &&
+    lat <= GOOGLE_ROUTE_LAT_MAX &&
+    lng >= GOOGLE_ROUTE_LNG_MIN &&
+    lng <= GOOGLE_ROUTE_LNG_MAX
+  );
+}
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+function medianNumber(values) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function buildGoogleRouteSegment(place, anchor) {
   const lat = getPlaceLat(place);
   const lng = getPlaceLng(place);
-  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+  const coordSane =
+    isGoogleRouteCoordInSeoulBounds(lat, lng) &&
+    (!anchor || haversineKm(lat, lng, anchor.lat, anchor.lng) <= GOOGLE_ROUTE_OUTLIER_KM);
+  if (coordSane) {
     return `${formatMapCoord(lat)},${formatMapCoord(lng)}`;
   }
   const name = getPlaceName(place);
@@ -5557,25 +5598,41 @@ function encodeGoogleRouteStop(place) {
   return /seoul/i.test(name) ? name : `${name} Seoul`;
 }
 
+// Internal name preserved for callers (buildExternalMapUrl). The route-level
+// Google URL intentionally omits travelmode=walking — Google Maps walking
+// directions are unreliable in Korea and forcing the flag has produced
+// "walking directions are not available" errors. Opening the route reliably
+// in Google's default mode is preferred over forcing a broken walking screen.
 function buildGoogleWalkingDirectionsUrl(routePlaces) {
   if (!routePlaces.length) return '';
+
   if (routePlaces.length === 1) {
-    const query = encodeGoogleRouteStop(routePlaces[0]);
-    if (!query) return '';
+    const lat = getPlaceLat(routePlaces[0]);
+    const lng = getPlaceLng(routePlaces[0]);
+    if (isGoogleRouteCoordInSeoulBounds(lat, lng)) {
+      const coordQuery = `${formatMapCoord(lat)},${formatMapCoord(lng)}`;
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordQuery)}`;
+    }
+    const name = getPlaceName(routePlaces[0]);
+    if (!name) return '';
+    const query = /seoul/i.test(name) ? name : `${name} Seoul`;
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
   }
-  const segments = routePlaces.map(encodeGoogleRouteStop).filter(Boolean);
+
+  const anchorCoords = routePlaces
+    .map((place) => ({ lat: getPlaceLat(place), lng: getPlaceLng(place) }))
+    .filter((c) => isGoogleRouteCoordInSeoulBounds(c.lat, c.lng));
+  const anchor = anchorCoords.length
+    ? { lat: medianNumber(anchorCoords.map((c) => c.lat)), lng: medianNumber(anchorCoords.map((c) => c.lng)) }
+    : null;
+
+  const segments = routePlaces
+    .map((place) => buildGoogleRouteSegment(place, anchor))
+    .filter(Boolean);
   if (segments.length < 2) return '';
-  const origin = segments[0];
-  const destination = segments[segments.length - 1];
-  const waypoints = segments.slice(1, -1).join('|');
-  const params = [
-    `origin=${encodeURIComponent(origin)}`,
-    `destination=${encodeURIComponent(destination)}`,
-    waypoints ? `waypoints=${encodeURIComponent(waypoints)}` : '',
-    'travelmode=walking',
-  ].filter(Boolean).join('&');
-  return `https://www.google.com/maps/dir/?api=1&${params}`;
+
+  const path = segments.map((segment) => encodeURIComponent(segment)).join('/');
+  return `https://www.google.com/maps/dir/${path}`;
 }
 
 function buildExternalMapUrl(routePlaces, provider = 'naver') {
