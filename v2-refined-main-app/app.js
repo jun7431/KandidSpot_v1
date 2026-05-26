@@ -3557,6 +3557,12 @@ function buildStopMapSearchUrl(place = {}, fallbackName, provider) {
     return query ? `https://map.naver.com/p/search/${encodeURIComponent(query)}` : '';
   }
   if (provider === 'google') {
+    const lat = getPlaceLat(place);
+    const lng = getPlaceLng(place);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      const coordQuery = `${formatMapCoord(lat)},${formatMapCoord(lng)}`;
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordQuery)}`;
+    }
     const query = buildStopSearchQuery(place, fallbackName);
     if (!query) return '';
     const enriched = /seoul/i.test(query) ? query : `${query} Seoul`;
