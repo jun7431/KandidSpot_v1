@@ -1726,7 +1726,10 @@ input { font-family: inherit; }
 }
 .ks-stop-link[data-source="naver"] .ks-link-mark { background: #03C75A; }
 .ks-stop-link[data-source="kakao"] .ks-link-mark { background: #FAE100; color: #111; }
-.ks-stop-link[data-source="google"] .ks-link-mark { background: #4285F4; }
+.ks-stop-link[data-source="google"] .ks-link-mark {
+  background: conic-gradient(from 90deg, #4285F4, #EA4335, #FBBC05, #34A853, #4285F4);
+  color: #1A1A18;
+}
 
 .map-google-fallback {
   position: absolute;
@@ -3211,8 +3214,12 @@ a:focus-visible {
 }
 
 .map-provider-btn.active[data-map-provider="google"] {
-  background: #4285F4;
-  color: #fff;
+  background-color: #fff;
+  background-image: linear-gradient(90deg, #4285F4 0% 25%, #EA4335 25% 50%, #FBBC05 50% 75%, #34A853 75% 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 3px;
+  background-position: 0 100%;
+  color: var(--ks-ink);
 }
 
 .map-ctrl {
