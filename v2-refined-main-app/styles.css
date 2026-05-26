@@ -193,6 +193,29 @@ input { font-family: inherit; }
   scrollbar-width: none;
 }
 .chip-scroller::-webkit-scrollbar { display: none; }
+.builder-start-control {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 8px;
+  align-items: center;
+}
+
+.builder-custom-time {
+  width: 92px;
+  min-height: 31px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 0 10px;
+  background: var(--card);
+  color: var(--text);
+  font: 500 12.5px/1.2 inherit;
+}
+
+.builder-custom-time[hidden] {
+  display: none;
+}
+
 .chip {
   background: var(--card);
   border: 1px solid var(--border);
@@ -1162,6 +1185,9 @@ input { font-family: inherit; }
 .ob-options-time {
   grid-template-columns: repeat(4, 1fr);
 }
+.ob-options-start {
+  grid-template-columns: repeat(4, 1fr);
+}
 .ob-options-area {
   grid-template-columns: repeat(3, 1fr);
 }
@@ -1390,6 +1416,9 @@ input { font-family: inherit; }
     margin-bottom: 24px;
   }
   .ob-options-time {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ob-options-start {
     grid-template-columns: 1fr 1fr;
   }
   .ob-option { padding: 14px 12px 12px; }
@@ -3473,6 +3502,7 @@ a:focus-visible {
 .ob-options,
 .ob-options-area,
 .ob-options-time,
+.ob-options-start,
 .ob-options-mood {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px 18px;
@@ -3626,18 +3656,41 @@ a:focus-visible {
   margin: 2px 0 28px;
 }
 
+.ob-custom-time {
+  display: block;
+  max-width: 320px;
+  margin: -8px 0 28px;
+}
+
+.ob-custom-time[hidden] {
+  display: none;
+}
+
 .ob-context-label {
   color: var(--ks-ink-soft);
   font-family: var(--ks-mono);
 }
 
-.ob-context-field input {
+.ob-context-field input,
+.ob-custom-time input,
+.builder-custom-time {
   border: 1.5px solid var(--ks-rule);
   border-radius: 999px;
   background: var(--ks-paper);
 }
 
-.ob-context-field input:focus {
+.ob-custom-time input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  color: var(--ks-ink);
+  font: 600 14px/1.2 var(--ks-sans);
+  outline: none;
+}
+
+.ob-context-field input:focus,
+.ob-custom-time input:focus,
+.builder-custom-time:focus {
   border-color: var(--ks-blue);
   box-shadow: 0 0 0 4px rgba(27, 63, 224, 0.14);
 }
@@ -3995,6 +4048,7 @@ a:focus-visible {
   .ob-options,
   .ob-options-area,
   .ob-options-time,
+  .ob-options-start,
   .ob-options-mood {
     grid-template-columns: 1fr;
   }

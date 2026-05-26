@@ -1779,6 +1779,8 @@ function buildRouteWhyCopy(areaLabel, timeConfig, moodContext, stops, timing, re
   } else {
     pieces.push(`Built around your ${timeConfig.label} window.`);
   }
+  const startTimeCopy = getStartTimeRouteCopy();
+  if (startTimeCopy) pieces.push(startTimeCopy);
 
   const refinementLabels = getRefinementLabels(refinementInput);
   if (refinementLabels.length) {
@@ -1796,6 +1798,8 @@ function buildRouteWhyItems(route = currentRoute) {
   } else {
     items.push('Fits your selected time window');
   }
+  const startTimeCopy = getStartTimeRouteCopy();
+  if (startTimeCopy) items.push(startTimeCopy);
   items.push(stops.length > 1 ? 'Keeps stops close enough to follow' : 'Keeps the stop easy to reach');
   items.push('Chosen for your area and mood');
 
@@ -1838,10 +1842,11 @@ function prepareRouteForDisplay(route) {
   const existingMeta = route.meta || {};
   const moodContext = getMoodContext(route.defaultMood || state.mood);
   const safeWhy = route.why && !hasInternalRouteLanguage(route.why)
-    ? route.why
+    ? appendStartTimeContext(route.why)
     : buildRouteWhyCopy(areaLabel, timeConfig, moodContext, stops, timing, route.refinementKeys);
+  const startTimeCopy = getStartTimeRouteCopy();
   const defaultAsk = {
-    why: `This ${getRouteStructureLabel(stops.length)} is tuned for ${areaLabel}, ${timeConfig.label}, and your selected mood.`,
+    why: `This ${getRouteStructureLabel(stops.length)} is tuned for ${areaLabel}, ${timeConfig.label}, and your selected mood.${startTimeCopy ? ` ${startTimeCopy}` : ''}`,
     crowd: 'I do not check live crowd levels yet, but this route keeps the stops close together so you can adjust on the fly.',
     cafe: 'I can lean the route toward cafe and dessert stops when nearby options fit your area and time.',
   };
@@ -1849,6 +1854,9 @@ function prepareRouteForDisplay(route) {
   Object.keys(ask).forEach(key => {
     if (hasInternalRouteLanguage(ask[key])) ask[key] = defaultAsk[key] || defaultAsk.why;
   });
+  if (startTimeCopy && ask.why && !/Planned for an? .* start\.|Planned around .*\./i.test(ask.why)) {
+    ask.why = `${ask.why} ${startTimeCopy}`;
+  }
 
   return {
     ...route,
@@ -3052,12 +3060,57 @@ const ASK_RESPONSES = {
 const state = {
   area: 'Hongdae',
   time: '2 hours',
+  startTimePeriod: 'afternoon',
+  customStartTime: '',
   mood: 'Local food',
   shape: null,
   activeRefinements: [],
   activeStop: null,
   routeKey: 'hongdae',
 };
+
+const START_TIME_PERIOD_LABELS = {
+  morning: 'Morning',
+  afternoon: 'Afternoon',
+  evening: 'Evening',
+  custom: 'Custom',
+};
+
+function normalizeStartTimePeriod(value) {
+  return START_TIME_PERIOD_LABELS[value] ? value : 'afternoon';
+}
+
+function getCustomStartTimeValue(value = state.customStartTime) {
+  return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function getStartTimeRouteCopy(source = state) {
+  const period = normalizeStartTimePeriod(source.startTimePeriod);
+  if (period === 'morning') return 'Planned for a morning start.';
+  if (period === 'afternoon') return 'Planned for an afternoon start.';
+  if (period === 'evening') return 'Planned for an evening start.';
+
+  const customStartTime = getCustomStartTimeValue(source.customStartTime);
+  return customStartTime ? `Planned around ${customStartTime}.` : '';
+}
+
+function getStartTimeSummaryLabel(source = state) {
+  const period = normalizeStartTimePeriod(source.startTimePeriod);
+  if (period === 'custom') {
+    const customStartTime = getCustomStartTimeValue(source.customStartTime);
+    return customStartTime || 'Custom start';
+  }
+  return START_TIME_PERIOD_LABELS[period];
+}
+
+function appendStartTimeContext(text) {
+  const copy = getStartTimeRouteCopy();
+  if (!copy) return text;
+  const base = String(text || '').trim();
+  if (!base) return copy;
+  if (/Planned for an? .* start\.|Planned around .*\./i.test(base)) return base;
+  return `${base} ${copy}`;
+}
 
 const REFINEMENT_KEYS = ['walk', 'local', 'cheap', 'cafe', 'quiet', 'open'];
 const REFINEMENT_LABELS = {
@@ -3228,6 +3281,22 @@ builderToggle.addEventListener('click', () => {
   setBuilderCollapsed(willCollapse);
 });
 
+const builderCustomStartTimeInput = document.getElementById('builder-custom-start-time');
+
+function updateBuilderCustomStartTimeVisibility() {
+  if (!builderCustomStartTimeInput) return;
+  const isCustom = normalizeStartTimePeriod(state.startTimePeriod) === 'custom';
+  builderCustomStartTimeInput.hidden = !isCustom;
+  builderCustomStartTimeInput.value = isCustom ? getCustomStartTimeValue(state.customStartTime) : '';
+}
+
+function syncCustomStartTimeFromBuilder() {
+  if (!builderCustomStartTimeInput) return;
+  state.customStartTime = getCustomStartTimeValue(builderCustomStartTimeInput.value);
+}
+
+builderCustomStartTimeInput?.addEventListener('input', syncCustomStartTimeFromBuilder);
+
 // ========== Chip selection ==========
 document.querySelectorAll('[data-group]').forEach(row => {
   row.addEventListener('click', e => {
@@ -3236,6 +3305,11 @@ document.querySelectorAll('[data-group]').forEach(row => {
     row.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
     btn.classList.add('selected');
     state[row.dataset.group] = btn.dataset.value;
+    if (row.dataset.group === 'startTimePeriod') {
+      if (state.startTimePeriod !== 'custom') state.customStartTime = '';
+      updateBuilderCustomStartTimeVisibility();
+      if (state.startTimePeriod === 'custom') builderCustomStartTimeInput?.focus();
+    }
   });
 });
 
@@ -3250,6 +3324,14 @@ buildBtn.addEventListener('click', () => {
     const sel = group.querySelector('.chip.selected');
     if (sel) state[group.dataset.group] = sel.dataset.value;
   });
+  syncCustomStartTimeFromBuilder();
+
+  if (normalizeStartTimePeriod(state.startTimePeriod) === 'custom' && !getCustomStartTimeValue(state.customStartTime)) {
+    updateBuilderCustomStartTimeVisibility();
+    builderCustomStartTimeInput?.focus();
+    showToast('Add a custom start time, like 2:00 PM.');
+    return;
+  }
 
   loadingState.classList.add('active');
   const steps = LOADING_STEPS.map(s => s.replace('{area}', state.area));
@@ -3326,7 +3408,7 @@ function applyResolvedRoute(route) {
 
 function updateRouteCopy() {
   const sourceLabel = currentRoute.sourceLabel;
-  rsSummary.textContent = [currentRoute.label, state.time, state.mood, sourceLabel].filter(Boolean).join(' · ');
+  rsSummary.textContent = [currentRoute.label, state.time, getStartTimeSummaryLabel(), state.mood, sourceLabel].filter(Boolean).join(' · ');
   document.getElementById('map-location-label').textContent = currentRoute.mapLabel;
   document.getElementById('why-body').textContent = currentRoute.why;
   const whyList = document.querySelector('.ks-why-list');
@@ -3356,13 +3438,13 @@ function setRouteMetaItem(index, value, label) {
 }
 
 function setRouteMetaDefault() {
-  setRouteMetaItem(0, String(currentRoute.stops.length), 'stops');
+  setRouteMetaItem(0, String(currentRoute.stops.length), currentRoute.stops.length === 1 ? 'stop' : 'stops');
   setRouteMetaItem(1, currentRoute.meta.total, currentRoute.meta.totalLabel || 'total');
   setRouteMetaItem(2, [currentRoute.meta.walking, currentRoute.meta.distance].filter(Boolean).join(' · '), 'walking');
 }
 
 function setNaverDirectionsMeta(directions) {
-  setRouteMetaItem(0, String(currentRoute.stops.length), 'stops');
+  setRouteMetaItem(0, String(currentRoute.stops.length), currentRoute.stops.length === 1 ? 'stop' : 'stops');
   setRouteMetaItem(1, directions.durationText, 'map ETA');
   setRouteMetaItem(2, directions.distanceText, 'route distance');
 }
@@ -5173,6 +5255,8 @@ function getRouteSnapshot() {
     timestamp: new Date().toISOString(),
     area: state.area,
     time: state.time,
+    startTimePeriod: normalizeStartTimePeriod(state.startTimePeriod),
+    customStartTime: getCustomStartTimeValue(state.customStartTime),
     vibe: state.mood,
     activeRefinements: getActiveRefinementKeys(),
     activeMapProvider: getActiveMapProvider(),
@@ -5191,6 +5275,8 @@ function getRouteSnapshotKey(snapshot) {
   return [
     snapshot.area,
     snapshot.time,
+    snapshot.startTimePeriod || '',
+    snapshot.customStartTime || '',
     snapshot.vibe,
     Array.isArray(snapshot.activeRefinements) ? snapshot.activeRefinements.slice().sort().join(',') : '',
     snapshot.stops.map(stop => stop.id || stop.name).join('>'),
@@ -5242,7 +5328,7 @@ function buildShareText() {
 
   return [
     'Kandid Spot',
-    `${state.area} · ${state.time} · ${state.mood}`,
+    `${state.area} · ${state.time} · ${getStartTimeSummaryLabel()} · ${state.mood}`,
     currentRoute?.mapLabel || currentRoute?.label || 'Route',
     getRefinementCount() ? `Refinements: ${getRefinementLabels().join(', ')}` : '',
     stopLines,
@@ -5731,7 +5817,7 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ========== Onboarding (hybrid flow: 3 required + 2 optional) ==========
+// ========== Onboarding (hybrid flow: 4 required + 2 optional) ==========
 const OB_LOADING_STEPS = [
   'Reading the streets of {area}',
   'Checking walking time',
@@ -5740,8 +5826,8 @@ const OB_LOADING_STEPS = [
   'Finding a route you can start now',
 ];
 
-const OB_REQUIRED_LAST_STEP = 3;
-const OB_FINAL_STEP = 5;
+const OB_REQUIRED_LAST_STEP = 4;
+const OB_FINAL_STEP = 6;
 
 const onboarding = {
   el: document.getElementById('onboarding'),
@@ -5751,17 +5837,21 @@ const onboarding = {
   currentOptEl: document.getElementById('ob-current-opt'),
   progressRequiredEl: null,
   progressOptionalEl: null,
+  customStartTimeField: null,
+  customStartTimeInput: null,
   step: 1,
-  // Required: area, time, mood — all three are required to gate route generation.
+  // Required: area, duration, starting time, mood — all are required to gate route generation.
   // Optional: shape (itinerary flow), refine (per-anchor route preference map).
-  selections: { area: null, time: null, mood: null, shape: null, refine: {} },
+  selections: { area: null, time: null, startTimePeriod: null, customStartTime: '', mood: null, shape: null, refine: {} },
   contextNote: '',
 
   init() {
     this.progressRequiredEl = this.el.querySelector('[data-progress-required]');
     this.progressOptionalEl = this.el.querySelector('[data-progress-optional]');
+    this.customStartTimeField = this.el.querySelector('[data-custom-start-time-field]');
+    this.customStartTimeInput = this.el.querySelector('[data-custom-start-time]');
 
-    // Required-step option groups (area / time / mood)
+    // Required-step option groups (area / time / starting time / mood)
     this.el.querySelectorAll('.ob-options').forEach(group => {
       const groupKey = group.dataset.group;
       group.addEventListener('click', e => {
@@ -5770,9 +5860,21 @@ const onboarding = {
         group.querySelectorAll('.ob-option').forEach(o => o.classList.remove('selected'));
         btn.classList.add('selected');
         this.selections[groupKey] = btn.dataset.value;
+        if (groupKey === 'startTimePeriod') {
+          if (btn.dataset.value !== 'custom') this.selections.customStartTime = '';
+          this.updateCustomStartTimeVisibility();
+          if (btn.dataset.value === 'custom') this.customStartTimeInput?.focus();
+        }
         this.updateNextEnabled();
       });
     });
+
+    if (this.customStartTimeInput) {
+      this.customStartTimeInput.addEventListener('input', () => {
+        this.selections.customStartTime = getCustomStartTimeValue(this.customStartTimeInput.value);
+        this.updateNextEnabled();
+      });
+    }
 
     // Optional Step 4: itinerary shape cards
     const shapeGroup = this.el.querySelector('.ob-shapes');
@@ -5819,7 +5921,7 @@ const onboarding = {
       const skipBtn = screen.querySelector('.ob-skip');
       if (nextBtn) nextBtn.addEventListener('click', () => this.nextStep());
       if (backBtn) backBtn.addEventListener('click', () => this.prevStep());
-      if (customizeBtn) customizeBtn.addEventListener('click', () => this.goToStep(4));
+      if (customizeBtn) customizeBtn.addEventListener('click', () => this.goToStep(5));
       if (skipBtn) {
         skipBtn.addEventListener('click', () => {
           this.skipOptionalStep(parseInt(screen.dataset.step, 10));
@@ -5834,6 +5936,13 @@ const onboarding = {
       const nextBtn = screen?.querySelector('.ob-next');
       if (nextBtn && !nextBtn.disabled) nextBtn.click();
     });
+  },
+
+  updateCustomStartTimeVisibility() {
+    if (!this.customStartTimeField || !this.customStartTimeInput) return;
+    const isCustom = this.selections.startTimePeriod === 'custom';
+    this.customStartTimeField.hidden = !isCustom;
+    this.customStartTimeInput.value = isCustom ? getCustomStartTimeValue(this.selections.customStartTime) : '';
   },
 
   goToStep(n) {
@@ -5858,6 +5967,7 @@ const onboarding = {
     }
 
     this.el.scrollTo({ top: 0, behavior: 'smooth' });
+    this.updateCustomStartTimeVisibility();
     this.updateNextEnabled();
   },
 
@@ -5870,7 +5980,9 @@ const onboarding = {
     // Required steps: enable Next only when this step's group has a selection.
     if (options && nextBtn) {
       const groupKey = options.dataset.group;
-      const ready = Boolean(this.selections[groupKey]);
+      const ready = groupKey === 'startTimePeriod' && this.selections[groupKey] === 'custom'
+        ? Boolean(getCustomStartTimeValue(this.selections.customStartTime))
+        : Boolean(this.selections[groupKey]);
       nextBtn.disabled = !ready;
       if (customizeBtn) customizeBtn.disabled = !ready;
       return;
@@ -5880,22 +5992,22 @@ const onboarding = {
   },
 
   nextStep() {
-    // Step 3 "Show my route" — required path is complete, build immediately.
+    // Final required step "Show my route" — required path is complete, build immediately.
     if (this.step === OB_REQUIRED_LAST_STEP) {
       this.triggerBuild();
       return;
     }
-    // Optional Step 4 "Continue" — advance to Step 5.
-    if (this.step === 4) {
-      this.goToStep(5);
+    // Optional Step 5 "Continue" — advance to Step 6.
+    if (this.step === 5) {
+      this.goToStep(6);
       return;
     }
-    // Optional Step 5 "Build my route" — build using existing flow.
+    // Optional Step 6 "Build my route" — build using existing flow.
     if (this.step === OB_FINAL_STEP) {
       this.triggerBuild();
       return;
     }
-    // Required Steps 1–2.
+    // Required steps before the final required screen.
     this.goToStep(this.step + 1);
   },
 
@@ -5922,8 +6034,8 @@ const onboarding = {
   },
 
   skipOptionalStep(stepNumber) {
-    if (stepNumber === 4) this.clearShapeSelection();
-    if (stepNumber === 5) this.resetRefinePreferences();
+    if (stepNumber === 5) this.clearShapeSelection();
+    if (stepNumber === 6) this.resetRefinePreferences();
     this.triggerBuild();
   },
 
@@ -5947,8 +6059,11 @@ const onboarding = {
   },
 
   reveal() {
+    this.selections.startTimePeriod = normalizeStartTimePeriod(this.selections.startTimePeriod);
+    this.selections.customStartTime = getCustomStartTimeValue(this.selections.customStartTime);
     Object.assign(state, this.selections);
     syncBuilderChips();
+    updateBuilderCustomStartTimeVisibility();
 
     setBuilderCollapsed(true);
     loadingState.classList.remove('active');
@@ -5969,7 +6084,7 @@ const onboarding = {
 
   restart(preserveSelections = true) {
     if (preserveSelections) {
-      ['area', 'time', 'mood'].forEach(key => {
+      ['area', 'time', 'startTimePeriod', 'mood'].forEach(key => {
         const value = state[key];
         const group = this.el.querySelector(`.ob-options[data-group="${key}"]`);
         if (group) {
@@ -5979,12 +6094,15 @@ const onboarding = {
           this.selections[key] = value;
         }
       });
+      this.selections.customStartTime = getCustomStartTimeValue(state.customStartTime);
+      if (this.customStartTimeInput) this.customStartTimeInput.value = this.selections.customStartTime;
     } else {
-      this.selections = { area: null, time: null, mood: null, shape: null, refine: {} };
+      this.selections = { area: null, time: null, startTimePeriod: null, customStartTime: '', mood: null, shape: null, refine: {} };
       this.contextNote = '';
       this.el.querySelectorAll('.ob-option').forEach(o => o.classList.remove('selected'));
       const contextInput = this.el.querySelector('[data-context-input]');
       if (contextInput) contextInput.value = '';
+      if (this.customStartTimeInput) this.customStartTimeInput.value = '';
     }
     // Optional route preferences reset when starting a new onboarding pass.
     this.clearShapeSelection();
@@ -5997,14 +6115,18 @@ const onboarding = {
 };
 
 function syncBuilderChips() {
-  ['area', 'time', 'mood'].forEach(key => {
+  ['area', 'time', 'startTimePeriod', 'mood'].forEach(key => {
     const group = document.querySelector(`#main-app .builder [data-group="${key}"]`);
     if (!group) return;
-    const value = state[key];
+    const value = key === 'startTimePeriod' ? normalizeStartTimePeriod(state[key]) : state[key];
     group.querySelectorAll('.chip').forEach(c => {
       c.classList.toggle('selected', c.dataset.value === value);
     });
   });
+  if (builderCustomStartTimeInput) {
+    builderCustomStartTimeInput.value = getCustomStartTimeValue(state.customStartTime);
+  }
+  updateBuilderCustomStartTimeVisibility();
 }
 
 document.getElementById('new-btn').addEventListener('click', () => {

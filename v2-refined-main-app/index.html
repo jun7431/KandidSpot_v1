@@ -33,9 +33,10 @@
         <div class="ob-step active" data-step="1"></div>
         <div class="ob-step" data-step="2"></div>
         <div class="ob-step" data-step="3"></div>
+        <div class="ob-step" data-step="4"></div>
       </div>
       <div class="ob-progress-label">
-        <span data-progress-required>Step <span id="ob-current">1</span> of 3</span>
+        <span data-progress-required>Step <span id="ob-current">1</span> of 4</span>
         <span data-progress-optional hidden>Customizing · <span id="ob-current-opt">1</span> of 2 · optional</span>
       </div>
     </div>
@@ -62,7 +63,9 @@
           <li class="ks-flow-arrow" aria-hidden="true">→</li>
           <li><span class="ks-flow-num">2</span><span class="ks-flow-label">Time</span></li>
           <li class="ks-flow-arrow" aria-hidden="true">→</li>
-          <li><span class="ks-flow-num">3</span><span class="ks-flow-label">Mood</span></li>
+          <li><span class="ks-flow-num">3</span><span class="ks-flow-label">Start</span></li>
+          <li class="ks-flow-arrow" aria-hidden="true">→</li>
+          <li><span class="ks-flow-num">4</span><span class="ks-flow-label">Mood</span></li>
           <li class="ks-flow-arrow" aria-hidden="true">→</li>
           <li class="ks-flow-result"><span class="ks-flow-label">Your route</span></li>
         </ol>
@@ -153,8 +156,45 @@
       </div>
     </section>
 
-    <!-- Step 3: Mood — last required step -->
+    <!-- Step 3: Starting time -->
     <section class="ob-screen" data-step="3">
+      <h1 class="ob-q-h1">When should we plan this route for?</h1>
+      <p class="ob-q-sub">Pick a light starting context. We will not claim live opening hours unless the data supports it.</p>
+      <div class="ob-options ob-options-start" data-group="startTimePeriod">
+        <button class="ob-option" data-value="morning">
+          <span class="ob-emoji">☀️</span>
+          <span class="ob-option-label">Morning</span>
+          <span class="ob-option-sub">A calm start to the day</span>
+        </button>
+        <button class="ob-option" data-value="afternoon">
+          <span class="ob-emoji">🌤️</span>
+          <span class="ob-option-label">Afternoon</span>
+          <span class="ob-option-sub">A flexible daytime route</span>
+        </button>
+        <button class="ob-option" data-value="evening">
+          <span class="ob-emoji">🌙</span>
+          <span class="ob-option-label">Evening</span>
+          <span class="ob-option-sub">A later route with night energy</span>
+        </button>
+        <button class="ob-option" data-value="custom">
+          <span class="ob-emoji">🕘</span>
+          <span class="ob-option-label">Custom</span>
+          <span class="ob-option-sub">Use a simple start time</span>
+        </button>
+      </div>
+      <label class="ob-custom-time" data-custom-start-time-field hidden>
+        <span class="ob-context-label">Custom start time</span>
+        <input type="text" data-custom-start-time placeholder="2:00 PM" autocomplete="off" inputmode="text" />
+        <span class="ob-context-hint">One time is enough for now.</span>
+      </label>
+      <div class="ob-actions">
+        <button class="ob-back">Back</button>
+        <button class="ob-next" disabled>Next →</button>
+      </div>
+    </section>
+
+    <!-- Step 4: Mood — last required step -->
+    <section class="ob-screen" data-step="4">
       <h1 class="ob-q-h1">What kind of route fits right now?</h1>
       <p class="ob-q-sub">Pick the mood. We'll handle the order, the timing, and the picks.</p>
       <div class="ob-options ob-options-mood" data-group="mood">
@@ -200,8 +240,8 @@
       <p class="ob-actions-note">You're done with the required steps. Customizing is optional.</p>
     </section>
 
-    <!-- Step 4: Optional · Itinerary shape -->
-    <section class="ob-screen ob-screen-optional" data-step="4">
+    <!-- Step 5: Optional · Itinerary shape -->
+    <section class="ob-screen ob-screen-optional" data-step="5">
       <span class="ks-optional-tag">Optional · 1 of 2 · Itinerary shape</span>
       <h1 class="ob-q-h1">How should the route flow?</h1>
       <p class="ob-q-sub">Pick a feel for the order of stops. Skip and we'll choose for you.</p>
@@ -233,8 +273,8 @@
       </div>
     </section>
 
-    <!-- Step 5: Optional · Place refinement -->
-    <section class="ob-screen ob-screen-optional" data-step="5">
+    <!-- Step 6: Optional · Place refinement -->
+    <section class="ob-screen ob-screen-optional" data-step="6">
       <span class="ks-optional-tag">Optional · 2 of 2 · Place preferences</span>
       <h1 class="ob-q-h1">Lean it your way.</h1>
       <p class="ob-q-sub">Pin a stop type to make sure it's in. Heart what you'd prefer. Skip is fine — we'll still build the route.</p>
@@ -374,6 +414,18 @@
             <button class="chip" data-value="1–2 hours">1–2 hours</button>
             <button class="chip selected" data-value="2–3 hours">2–3 hours</button>
             <button class="chip" data-value="4–6 hours">4–6 hours</button>
+          </div>
+        </div>
+        <div class="builder-row">
+          <label class="builder-row-label">Start</label>
+          <div class="builder-start-control">
+            <div class="chip-scroller" data-group="startTimePeriod">
+              <button class="chip" data-value="morning">Morning</button>
+              <button class="chip selected" data-value="afternoon">Afternoon</button>
+              <button class="chip" data-value="evening">Evening</button>
+              <button class="chip" data-value="custom">Custom</button>
+            </div>
+            <input class="builder-custom-time" id="builder-custom-start-time" type="text" placeholder="2:00 PM" autocomplete="off" hidden />
           </div>
         </div>
         <div class="builder-row">
