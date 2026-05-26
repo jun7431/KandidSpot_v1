@@ -487,7 +487,7 @@
         <div class="refine-section">
           <div class="section-head">
             <h3>Refine this route</h3>
-            <p class="refine-hint">Choose one or more — we'll rebuild the route.</p>
+            <p class="refine-hint">Choose one or more to tune this route.</p>
           </div>
           <div class="refine-chips" id="refine-chips">
             <button class="refine-chip" data-refine="walk">🚶 Less walking</button>
@@ -584,7 +584,7 @@
           <div class="ask-ava-lg">K</div>
           <div>
             <div class="ask-name">Ask Kandid Spot</div>
-            <div class="ask-bio">Your local in Seoul · usually replies fast</div>
+            <div class="ask-bio">Route preview · beta guidance</div>
           </div>
         </div>
         <button class="ask-close" id="ask-close" aria-label="Close drawer">
@@ -594,7 +594,7 @@
 
       <div class="ask-thread" id="ask-thread">
         <div class="ask-msg from-miro">
-          <div class="ask-bubble">Hi 👋 Ask Kandid Spot anything about your current route — we'll keep it short.</div>
+          <div class="ask-bubble">Ask Kandid Spot about this route. Preview answers use the current route and do not check live hours yet.</div>
         </div>
         <div class="ask-suggest-head">Try one of these</div>
         <div class="ask-suggestions" id="ask-suggestions">
@@ -626,8 +626,9 @@
 
       <div class="early-access-copy" id="early-access-copy">
         <div class="early-access-kicker">Early access</div>
-        <h2 id="early-access-title">Use Kandid Spot after launch.</h2>
-        <p>Join the list for beta updates and first access when the official route planner opens.</p>
+        <h2 id="early-access-title">Like this route? Join Early Access.</h2>
+        <p>Get first access to Seoul route drops and saved-route features. We'll email you when early access opens.</p>
+        <p class="early-access-reassurance">We'll only use this to invite you to early access and improve Seoul routes.</p>
       </div>
 
       <form class="early-access-form" id="early-access-form" novalidate>
@@ -646,122 +647,126 @@
           <input id="ea-email" name="email" type="email" autocomplete="email" required>
         </label>
 
-        <label class="early-access-field early-access-field-wide">
-          <span>Country / Nationality</span>
-          <input id="ea-country" name="country" type="text" list="ea-country-options" autocomplete="country-name" placeholder="Start typing a country">
-          <datalist id="ea-country-options">
-            <option value="South Korea"></option>
-            <option value="United States"></option>
-            <option value="Japan"></option>
-            <option value="China"></option>
-            <option value="Taiwan"></option>
-            <option value="Hong Kong"></option>
-            <option value="Singapore"></option>
-            <option value="Thailand"></option>
-            <option value="Vietnam"></option>
-            <option value="Philippines"></option>
-            <option value="Indonesia"></option>
-            <option value="Malaysia"></option>
-            <option value="India"></option>
-            <option value="Australia"></option>
-            <option value="New Zealand"></option>
-            <option value="United Kingdom"></option>
-            <option value="Ireland"></option>
-            <option value="France"></option>
-            <option value="Germany"></option>
-            <option value="Spain"></option>
-            <option value="Italy"></option>
-            <option value="Netherlands"></option>
-            <option value="Belgium"></option>
-            <option value="Switzerland"></option>
-            <option value="Austria"></option>
-            <option value="Sweden"></option>
-            <option value="Norway"></option>
-            <option value="Denmark"></option>
-            <option value="Finland"></option>
-            <option value="Portugal"></option>
-            <option value="Greece"></option>
-            <option value="Poland"></option>
-            <option value="Czech Republic"></option>
-            <option value="Hungary"></option>
-            <option value="Turkey"></option>
-            <option value="Canada"></option>
-            <option value="Mexico"></option>
-            <option value="Brazil"></option>
-            <option value="Argentina"></option>
-            <option value="Chile"></option>
-            <option value="Colombia"></option>
-            <option value="Peru"></option>
-            <option value="Saudi Arabia"></option>
-            <option value="United Arab Emirates"></option>
-            <option value="Qatar"></option>
-            <option value="Kuwait"></option>
-            <option value="Israel"></option>
-            <option value="Egypt"></option>
-            <option value="South Africa"></option>
-            <option value="Morocco"></option>
-            <option value="Nigeria"></option>
-            <option value="Kenya"></option>
-            <option value="Pakistan"></option>
-            <option value="Bangladesh"></option>
-            <option value="Sri Lanka"></option>
-            <option value="Nepal"></option>
-            <option value="Myanmar"></option>
-            <option value="Cambodia"></option>
-            <option value="Laos"></option>
-            <option value="Mongolia"></option>
-            <option value="Russia"></option>
-            <option value="Ukraine"></option>
-            <option value="Other / Not listed"></option>
-          </datalist>
-        </label>
+        <button class="early-access-more" id="early-access-more" type="button" aria-expanded="false" aria-controls="early-access-optional">Add optional details</button>
 
-        <label class="early-access-field">
-          <span>Age range</span>
-          <select id="ea-age-range" name="age_range">
-            <option value="">Select one</option>
-            <option value="Under 18">Under 18</option>
-            <option value="18-20">18-20</option>
-            <option value="21-24">21-24</option>
-            <option value="25-29">25-29</option>
-            <option value="30-34">30-34</option>
-            <option value="35-39">35-39</option>
-            <option value="40-49">40-49</option>
-            <option value="50+">50+</option>
-            <option value="Prefer not to say">Prefer not to say</option>
-          </select>
-        </label>
+        <div class="early-access-optional" id="early-access-optional" hidden>
+          <label class="early-access-field early-access-field-wide">
+            <span>Country / Nationality</span>
+            <input id="ea-country" name="country" type="text" list="ea-country-options" autocomplete="country-name" placeholder="Start typing a country">
+            <datalist id="ea-country-options">
+              <option value="South Korea"></option>
+              <option value="United States"></option>
+              <option value="Japan"></option>
+              <option value="China"></option>
+              <option value="Taiwan"></option>
+              <option value="Hong Kong"></option>
+              <option value="Singapore"></option>
+              <option value="Thailand"></option>
+              <option value="Vietnam"></option>
+              <option value="Philippines"></option>
+              <option value="Indonesia"></option>
+              <option value="Malaysia"></option>
+              <option value="India"></option>
+              <option value="Australia"></option>
+              <option value="New Zealand"></option>
+              <option value="United Kingdom"></option>
+              <option value="Ireland"></option>
+              <option value="France"></option>
+              <option value="Germany"></option>
+              <option value="Spain"></option>
+              <option value="Italy"></option>
+              <option value="Netherlands"></option>
+              <option value="Belgium"></option>
+              <option value="Switzerland"></option>
+              <option value="Austria"></option>
+              <option value="Sweden"></option>
+              <option value="Norway"></option>
+              <option value="Denmark"></option>
+              <option value="Finland"></option>
+              <option value="Portugal"></option>
+              <option value="Greece"></option>
+              <option value="Poland"></option>
+              <option value="Czech Republic"></option>
+              <option value="Hungary"></option>
+              <option value="Turkey"></option>
+              <option value="Canada"></option>
+              <option value="Mexico"></option>
+              <option value="Brazil"></option>
+              <option value="Argentina"></option>
+              <option value="Chile"></option>
+              <option value="Colombia"></option>
+              <option value="Peru"></option>
+              <option value="Saudi Arabia"></option>
+              <option value="United Arab Emirates"></option>
+              <option value="Qatar"></option>
+              <option value="Kuwait"></option>
+              <option value="Israel"></option>
+              <option value="Egypt"></option>
+              <option value="South Africa"></option>
+              <option value="Morocco"></option>
+              <option value="Nigeria"></option>
+              <option value="Kenya"></option>
+              <option value="Pakistan"></option>
+              <option value="Bangladesh"></option>
+              <option value="Sri Lanka"></option>
+              <option value="Nepal"></option>
+              <option value="Myanmar"></option>
+              <option value="Cambodia"></option>
+              <option value="Laos"></option>
+              <option value="Mongolia"></option>
+              <option value="Russia"></option>
+              <option value="Ukraine"></option>
+              <option value="Other / Not listed"></option>
+            </datalist>
+          </label>
 
-        <label class="early-access-field">
-          <span>Gender</span>
-          <select id="ea-gender" name="gender">
-            <option value="">Select one</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-          </select>
-        </label>
+          <label class="early-access-field">
+            <span>Age range</span>
+            <select id="ea-age-range" name="age_range">
+              <option value="">Select one</option>
+              <option value="Under 18">Under 18</option>
+              <option value="18-20">18-20</option>
+              <option value="21-24">21-24</option>
+              <option value="25-29">25-29</option>
+              <option value="30-34">30-34</option>
+              <option value="35-39">35-39</option>
+              <option value="40-49">40-49</option>
+              <option value="50+">50+</option>
+              <option value="Prefer not to say">Prefer not to say</option>
+            </select>
+          </label>
 
-        <label class="early-access-field early-access-field-wide">
-          <span>Travel status</span>
-          <select id="ea-user-type" name="user_type">
-            <option value="">Select one</option>
-            <option value="First-time tourist in Korea">First-time tourist in Korea</option>
-            <option value="Repeat visitor to Korea">Repeat visitor to Korea</option>
-            <option value="Exchange student">Exchange student</option>
-            <option value="International student">International student</option>
-            <option value="Local resident">Local resident</option>
-            <option value="Expat / long-term resident">Expat / long-term resident</option>
-            <option value="Business traveler">Business traveler</option>
-            <option value="Visiting friends or family">Visiting friends or family</option>
-            <option value="Content creator">Content creator</option>
-            <option value="Other">Other</option>
-          </select>
-        </label>
+          <label class="early-access-field">
+            <span>Gender</span>
+            <select id="ea-gender" name="gender">
+              <option value="">Select one</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </label>
 
-        <label class="early-access-field early-access-field-wide">
-          <span>What should Kandid Spot help with?</span>
-          <textarea id="ea-message" name="message" rows="4" placeholder="Example: quiet Seoul routes, cafe days, night plans, local food..."></textarea>
-        </label>
+          <label class="early-access-field early-access-field-wide">
+            <span>Travel status</span>
+            <select id="ea-user-type" name="user_type">
+              <option value="">Select one</option>
+              <option value="First-time tourist in Korea">First-time tourist in Korea</option>
+              <option value="Repeat visitor to Korea">Repeat visitor to Korea</option>
+              <option value="Exchange student">Exchange student</option>
+              <option value="International student">International student</option>
+              <option value="Local resident">Local resident</option>
+              <option value="Expat / long-term resident">Expat / long-term resident</option>
+              <option value="Business traveler">Business traveler</option>
+              <option value="Visiting friends or family">Visiting friends or family</option>
+              <option value="Content creator">Content creator</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+
+          <label class="early-access-field early-access-field-wide">
+            <span>What should Kandid Spot help with?</span>
+            <textarea id="ea-message" name="message" rows="4" placeholder="Example: quiet Seoul routes, cafe days, night plans, local food..."></textarea>
+          </label>
+        </div>
 
         <label class="early-access-consent">
           <input id="ea-consent" name="consent" type="checkbox" required>

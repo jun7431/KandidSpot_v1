@@ -301,7 +301,7 @@ const ROUTES = {
     center: { lat: 37.5345, lng: 126.9946 },
     defaultMood: 'Drinks & night',
     meta: { total: '2h 20m', walking: '19 min' },
-    why: '이태원과 한남은 너무 넓게 잡으면 산만해져서, 글로벌한 식사로 시작해 한남의 디자인/브라우징 무드, 카페나 바, 야경 느낌으로 이어지게 잡았어요. This is a safe prototype fallback when local place data cannot build a route.',
+    why: '이태원과 한남은 너무 넓게 잡으면 산만해져서, 글로벌한 식사로 시작해 한남의 디자인/브라우징 무드, 카페나 바, 야경 느낌으로 이어지게 잡았어요. Built around nearby stops that fit the area, time, and night mood.',
     ask: {
       why: 'Itaewon and Hannam work best when the route keeps a clear arc: global food, a browse/design pause, then a cafe or bar finish without crossing the whole district.',
       crowd: 'Done — I would keep this one around Hannam side streets and avoid bouncing through Itaewon main road unless you want more nightlife.',
@@ -348,9 +348,9 @@ const ROUTES = {
         stay: 25,
         walk: 7,
         coords: { lat: 37.53183, lng: 126.99729 },
-        why: 'A low-commitment finish with the area feeling of Itaewon/Hannam, useful when the data-driven route is unavailable.',
+        why: 'A low-commitment finish with the area feeling of Itaewon/Hannam, useful when you want one more stop without stretching the route.',
         next: 'Route complete · transit nearby',
-        tags: ['🌃 view', '🚶 walkable', '📍 fallback'],
+        tags: ['🌃 view', '🚶 walkable', '📍 easy finish'],
       },
     ],
   },
@@ -365,49 +365,49 @@ const ROUTE_DEBUG_ENABLED = new URLSearchParams(window.location.search).get('rou
 const AREA_FILTERS = {
   myeongdong_euljiro: {
     label: 'Myeongdong / Euljiro',
-    mapLabel: 'Myeongdong / Euljiro · local place dataset',
+    mapLabel: 'Myeongdong / Euljiro · walkable local route',
     center: { lat: 37.5663, lng: 126.9880 },
     terms: ['명동', '을지로', '충무로', '청계', '종로', '중구'],
     radiusM: 1800,
   },
   hongdae_yeonnam: {
     label: 'Hongdae / Yeonnam',
-    mapLabel: 'Hongdae / Yeonnam · local place dataset',
+    mapLabel: 'Hongdae / Yeonnam · walkable local route',
     center: { lat: 37.5563, lng: 126.9236 },
     terms: ['홍대', '연남', '서교', '동교', '합정', '상수', '망원', '마포구'],
     radiusM: 1800,
   },
   itaewon_hannam: {
     label: 'Itaewon / Hannam',
-    mapLabel: 'Itaewon / Hannam · local place dataset',
+    mapLabel: 'Itaewon / Hannam · walkable local route',
     center: { lat: 37.5345, lng: 126.9946 },
     terms: ['이태원', '한남', '용산구', '해방촌', '녹사평'],
     radiusM: 2000,
   },
   seongsu: {
     label: 'Seongsu',
-    mapLabel: 'Seongsu · local place dataset',
+    mapLabel: 'Seongsu · walkable local route',
     center: { lat: 37.5446, lng: 127.0557 },
     terms: ['성수', '서울숲', '뚝섬', '성동구'],
     radiusM: 1800,
   },
   anguk_bukchon: {
     label: 'Anguk / Bukchon',
-    mapLabel: 'Anguk / Bukchon · local place dataset',
+    mapLabel: 'Anguk / Bukchon · walkable local route',
     center: { lat: 37.5796, lng: 126.9849 },
     terms: ['안국', '북촌', '삼청', '인사', '익선', '운니', '계동', '가회', '종로구'],
     radiusM: 1800,
   },
   gangnam_sinsa_apgujeong: {
     label: 'Gangnam / Sinsa / Apgujeong',
-    mapLabel: 'Gangnam / Sinsa / Apgujeong · local place dataset',
+    mapLabel: 'Gangnam / Sinsa / Apgujeong · walkable local route',
     center: { lat: 37.5172, lng: 127.0286 },
     terms: ['강남', '역삼', '신논현', '논현', '신사', '압구정', '잠원', '강남구', '서초구'],
     radiusM: 2500,
   },
   near_me: {
     label: 'Near me',
-    mapLabel: 'Near me · local place dataset',
+    mapLabel: 'Near me · walkable local route',
     center: null,
     terms: [],
     radiusM: 1200,
@@ -1091,7 +1091,7 @@ async function getRouteRuntimeContext(routeKey) {
     nearMeState.error = error;
     console.warn('Miro Near me geolocation failed; using mock fallback.', error);
     return {
-      locationError: 'Near me could not access your browser location, so this route uses a safe fallback.',
+      locationError: 'Near me could not access your browser location, so this route starts from a nearby Seoul route area.',
     };
   }
 }
@@ -1633,6 +1633,244 @@ function getDurationSoftCapMin(timeConfig) {
   return capsByTime[timeConfig?.key] || Number(timeConfig?.targetMin) || Infinity;
 }
 
+function getTimeWindowBounds(timeConfig = getTimeConfig()) {
+  const boundsByTime = {
+    time_30_60: { min: 30, max: 60 },
+    time_1_2: { min: 60, max: 120 },
+    time_2_3: { min: 120, max: 180 },
+    time_4_6: { min: 240, max: 360 },
+  };
+  return boundsByTime[timeConfig?.key] || {
+    min: 0,
+    max: Number(timeConfig?.targetMin) || Infinity,
+  };
+}
+
+function getStopMinimumStayMinutes(stop) {
+  const category = getPlacePrimaryCategory(stop?.place || stop);
+  if (category === 'meal') return 35;
+  if (category === 'bar') return 30;
+  if (category === 'cafe' || category === 'dessert_bakery') return 25;
+  if (category === 'activity') return 30;
+  return 20;
+}
+
+function applySuggestedStayPace(stops, timeConfig = getTimeConfig()) {
+  const routeStops = Array.isArray(stops) ? stops : [];
+  const travelMinutes = routeStops.reduce((sum, stop) => sum + Number(stop.walk || 0), 0);
+  const walkingMinutes = routeStops.reduce((sum, stop) => (
+    stop.legSuggestedMode === 'walk' ? sum + Number(stop.walk || 0) : sum
+  ), 0);
+  const rawStayMinutes = routeStops.reduce((sum, stop) => sum + Number(stop.stay || 0), 0);
+  const rawTotalMinutes = rawStayMinutes + travelMinutes;
+  const bounds = getTimeWindowBounds(timeConfig);
+  const maxWindowMinutes = Number(bounds.max);
+  const canFitToWindow = Number.isFinite(maxWindowMinutes) && rawTotalMinutes > maxWindowMinutes && routeStops.length > 0;
+
+  if (!canFitToWindow) {
+    routeStops.forEach(stop => {
+      stop.displayStay = Number(stop.stay || 0);
+    });
+    return {
+      rawTotalMinutes,
+      displayTotalMinutes: rawTotalMinutes,
+      walkingMinutes,
+      adjusted: false,
+      note: '',
+      totalLabel: 'total',
+    };
+  }
+
+  const minimumStayTotal = routeStops.reduce((sum, stop) => sum + getStopMinimumStayMinutes(stop), 0);
+  const targetStayTotal = Math.max(minimumStayTotal, maxWindowMinutes - travelMinutes);
+  const scale = rawStayMinutes > 0 ? Math.min(1, targetStayTotal / rawStayMinutes) : 1;
+  let assignedStayTotal = 0;
+
+  routeStops.forEach((stop, index) => {
+    const minimumStay = getStopMinimumStayMinutes(stop);
+    const isLastStop = index === routeStops.length - 1;
+    const scaledStay = Math.round(Number(stop.stay || 0) * scale);
+    const displayStay = isLastStop
+      ? Math.max(minimumStay, targetStayTotal - assignedStayTotal)
+      : Math.max(minimumStay, scaledStay);
+    stop.displayStay = displayStay;
+    assignedStayTotal += displayStay;
+  });
+
+  if (assignedStayTotal + travelMinutes > maxWindowMinutes) {
+    let overage = assignedStayTotal + travelMinutes - maxWindowMinutes;
+    for (let index = routeStops.length - 1; index >= 0 && overage > 0; index -= 1) {
+      const stop = routeStops[index];
+      const reducible = Math.max(0, Number(stop.displayStay || 0) - getStopMinimumStayMinutes(stop));
+      const reduction = Math.min(reducible, overage);
+      stop.displayStay -= reduction;
+      assignedStayTotal -= reduction;
+      overage -= reduction;
+    }
+  }
+
+  const displayTotalMinutes = assignedStayTotal + travelMinutes;
+  const finalOverMax = Number.isFinite(maxWindowMinutes) && displayTotalMinutes > maxWindowMinutes;
+  return {
+    rawTotalMinutes,
+    displayTotalMinutes,
+    walkingMinutes,
+    adjusted: displayTotalMinutes < rawTotalMinutes,
+    note: finalOverMax
+      ? `This is the closest realistic pace for your ${timeConfig.label} window; shorten one stop if you need to finish faster.`
+      : `Suggested pace keeps this within your ${timeConfig.label} window.`,
+    totalLabel: 'suggested total',
+  };
+}
+
+function getRouteStructureLabel(stopCount) {
+  const labels = {
+    0: 'empty route',
+    1: 'one-stop route',
+    2: 'two-stop route',
+    3: 'three-stop route',
+    4: 'four-stop route',
+    5: 'five-stop route',
+  };
+  return labels[stopCount] || `${stopCount}-stop route`;
+}
+
+function getStopPrimaryCategoryLabel(stop) {
+  const place = stop?.place || {};
+  const primaryCategory = getPlacePrimaryCategory(place);
+  if (primaryCategory === 'meal') return 'food';
+  if (primaryCategory === 'cafe') return 'cafe';
+  if (primaryCategory === 'dessert_bakery') return 'dessert';
+  if (primaryCategory === 'bar') return 'drinks';
+  if (primaryCategory === 'shopping') return 'shopping';
+  if (primaryCategory === 'activity') return 'activity';
+  if (primaryCategory === 'walk_nature') return 'walk';
+  if (primaryCategory === 'landmark_view') return 'view';
+  return place.primaryCategoryLabel || MIRO_CATEGORY_LABELS[place.miroCategory] || 'local stop';
+}
+
+function getRouteCategoryPhrase(stops) {
+  const labels = uniqueStrings((Array.isArray(stops) ? stops : [])
+    .map(getStopPrimaryCategoryLabel)
+    .filter(Boolean));
+  if (!labels.length) return '';
+  if (labels.length === 1) return labels[0];
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
+}
+
+function buildRouteWhyCopy(areaLabel, timeConfig, moodContext, stops, timing, refinementInput = null) {
+  const stopCount = Array.isArray(stops) ? stops.length : 0;
+  const structure = getRouteStructureLabel(stopCount);
+  const categories = getRouteCategoryPhrase(stops);
+  const moodLabel = moodContext?.labels?.join(' + ') || state.mood;
+  const pieces = [
+    `A ${structure} picked for walkability, local feel, and ${moodLabel} near ${areaLabel}.`,
+  ];
+
+  if (categories) {
+    pieces.push(`It connects ${categories} stops that are close enough to follow without turning this into a top-ten list.`);
+  } else {
+    pieces.push('It keeps the route realistic, local, and easy to follow.');
+  }
+
+  if (timing?.adjusted) {
+    pieces.push(timing.note);
+  } else {
+    pieces.push(`Built around your ${timeConfig.label} window.`);
+  }
+
+  const refinementLabels = getRefinementLabels(refinementInput);
+  if (refinementLabels.length) {
+    pieces.push(`Tuned for: ${refinementLabels.join(' · ')}.`);
+  }
+
+  return pieces.join(' ');
+}
+
+function buildRouteWhyItems(route = currentRoute) {
+  const stops = Array.isArray(route?.stops) ? route.stops : [];
+  const items = [];
+  if (route?.meta?.timeNote) {
+    items.push(route.meta.timeNote);
+  } else {
+    items.push('Fits your selected time window');
+  }
+  items.push(stops.length > 1 ? 'Keeps stops close enough to follow' : 'Keeps the stop easy to reach');
+  items.push('Chosen for your area and mood');
+
+  const categories = getRouteCategoryPhrase(stops);
+  if (categories) {
+    items.push(`${getRouteStructureLabel(stops.length)} with ${categories}`);
+  } else {
+    items.push(getRouteStructureLabel(stops.length));
+  }
+
+  return uniqueStrings(items);
+}
+
+function hasInternalRouteLanguage(value) {
+  return /\b(dataset|prototype|mock|fallback|algorithm)\b|generated from/i.test(String(value || ''));
+}
+
+function getUserFacingSourceLabel(label) {
+  return hasInternalRouteLanguage(label) || /real naver/i.test(String(label || ''))
+    ? 'Walkable route'
+    : (label || 'Walkable route');
+}
+
+function getStopDisplayStay(stop) {
+  const minutes = Number(stop?.displayStay ?? stop?.stay);
+  return Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : 0;
+}
+
+function prepareRouteForDisplay(route) {
+  if (!route || typeof route !== 'object') return route;
+
+  const timeConfig = getTimeConfig(state.time);
+  const areaLabel = route.label || getAreaConfig(getRouteKey(state.area)).label;
+  const mapLabel = route.mapLabel || areaLabel;
+  const stops = Array.isArray(route.stops)
+    ? route.stops.map((stop, index) => ({ ...stop, num: index + 1 }))
+    : [];
+  const timing = applySuggestedStayPace(stops, timeConfig);
+  const distanceMeters = stops.reduce((sum, stop) => sum + Number(stop.legDistanceMeters || 0), 0);
+  const existingMeta = route.meta || {};
+  const moodContext = getMoodContext(route.defaultMood || state.mood);
+  const safeWhy = route.why && !hasInternalRouteLanguage(route.why)
+    ? route.why
+    : buildRouteWhyCopy(areaLabel, timeConfig, moodContext, stops, timing, route.refinementKeys);
+  const defaultAsk = {
+    why: `This ${getRouteStructureLabel(stops.length)} is tuned for ${areaLabel}, ${timeConfig.label}, and your selected mood.`,
+    crowd: 'I do not check live crowd levels yet, but this route keeps the stops close together so you can adjust on the fly.',
+    cafe: 'I can lean the route toward cafe and dessert stops when nearby options fit your area and time.',
+  };
+  const ask = { ...defaultAsk, ...(route.ask || {}) };
+  Object.keys(ask).forEach(key => {
+    if (hasInternalRouteLanguage(ask[key])) ask[key] = defaultAsk[key] || defaultAsk.why;
+  });
+
+  return {
+    ...route,
+    label: areaLabel,
+    mapLabel,
+    sourceLabel: getUserFacingSourceLabel(route.sourceLabel),
+    meta: {
+      ...existingMeta,
+      total: formatMinutes(timing.displayTotalMinutes),
+      walking: `${timing.walkingMinutes} min`,
+      distance: existingMeta.distance || (distanceMeters > 0 ? formatDistanceMeters(distanceMeters) : ''),
+      totalLabel: timing.totalLabel || 'total',
+      timeNote: timing.adjusted
+        ? timing.note
+        : (existingMeta.timeNote && !hasInternalRouteLanguage(existingMeta.timeNote) ? existingMeta.timeNote : ''),
+    },
+    why: safeWhy,
+    ask,
+    stops,
+  };
+}
+
 function getDurationFitScore(place, context) {
   const targetMin = Number(context.timeConfig?.targetMin);
   if (!Number.isFinite(targetMin) || targetMin <= 0) return 0;
@@ -2089,13 +2327,13 @@ function orderPlacesNearestNeighbor(places, center) {
 function buildDataDrivenPlaceWhy(place, context, matchedTags) {
   const parts = [];
   if (context.moodContext.primaryPreferred.includes(place.primaryCategory)) {
-    parts.push(`matches ${context.moodContext.labels.join(' + ')}`);
+    parts.push(`fits ${context.moodContext.labels.join(' + ')}`);
   } else if (context.moodContext.secondaryPreferred.includes(place.primaryCategory)) {
     parts.push('adds a supporting stop');
   }
-  if (matchedTags.length) parts.push(`tag match: ${matchedTags.slice(0, 3).join(', ')}`);
+  if (matchedTags.length) parts.push(matchedTags.slice(0, 3).join(', '));
   if (Number.isFinite(place.__distanceM)) parts.push(`${formatDistanceMeters(place.__distanceM)} from ${context.areaConfig.label}`);
-  return parts.length ? parts.join(' · ') : 'Selected from local place data for this area.';
+  return parts.length ? parts.join(' · ') : 'Picked because it fits this area and mood.';
 }
 
 function dataPlaceToRouteStop(place, index, previousPlace, totalStops, context) {
@@ -2325,11 +2563,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementInput = null, runtimeCon
   const stops = orderedPlaces.map((place, index) => (
     dataPlaceToRouteStop(place, index, orderedPlaces[index - 1], orderedPlaces.length, routeContext)
   ));
-  const travelMinutes = stops.reduce((sum, stop) => sum + Number(stop.walk || 0), 0);
-  const walkingMinutes = stops.reduce((sum, stop) => (
-    stop.legSuggestedMode === 'walk' ? sum + Number(stop.walk || 0) : sum
-  ), 0);
-  const stayMinutes = stops.reduce((sum, stop) => sum + Number(stop.stay || 0), 0);
+  const timing = applySuggestedStayPace(stops, timeConfig);
   const distanceMeters = stops.reduce((sum, stop) => sum + Number(stop.legDistanceMeters || 0), 0);
 
   debugRouteRecommendation('data_driven_succeeded', {
@@ -2341,8 +2575,9 @@ function buildDataDrivenRoute(routeKey, mood, refinementInput = null, runtimeCon
     stopCount: stops.length,
     uxMinStops,
     durationCapMin: baseContext.durationCapMin,
-    estimatedTotalMinutes: stayMinutes + travelMinutes,
-    walkingMinutes,
+    estimatedTotalMinutes: timing.rawTotalMinutes,
+    displayedTotalMinutes: timing.displayTotalMinutes,
+    walkingMinutes: timing.walkingMinutes,
   });
 
   return {
@@ -2351,22 +2586,23 @@ function buildDataDrivenRoute(routeKey, mood, refinementInput = null, runtimeCon
     center: getRouteCenter(stops) || areaConfig.center,
     defaultMood: moodContext.labels.join(' + '),
     meta: {
-      total: formatMinutes(stayMinutes + travelMinutes),
-      walking: `${walkingMinutes} min`,
+      total: formatMinutes(timing.displayTotalMinutes),
+      walking: `${timing.walkingMinutes} min`,
       distance: formatDistanceMeters(distanceMeters),
+      totalLabel: timing.totalLabel,
+      timeNote: timing.adjusted ? timing.note : '',
     },
-    why: appendRoutePreferenceExplanation([
-      `Generated from the local subcategorized place dataset for ${areaConfig.label}.`,
-      `Time: ${timeConfig.label}. Mood: ${moodContext.labels.join(' + ')}.`,
-      'Stops are ranked by area distance, category fit, tag match, route role, stay time, and availability.',
-    ].join(' '), routePreferences),
+    why: appendRoutePreferenceExplanation(
+      buildRouteWhyCopy(areaConfig.label, timeConfig, moodContext, stops, timing, refinementKeys),
+      routePreferences
+    ),
     ask: {
-      why: `This route is generated from local place data and ranked for ${areaConfig.label}, ${timeConfig.label}, and ${moodContext.labels.join(' + ')}.`,
-      crowd: 'This prototype does not check live crowd levels, but it favors closer local candidates and existing category tags.',
-      cafe: 'I can prioritize cafe and dessert categories when the selected mood supports it.',
+      why: `This ${getRouteStructureLabel(stops.length)} is tuned for ${areaConfig.label}, ${timeConfig.label}, and ${moodContext.labels.join(' + ')}.`,
+      crowd: 'I do not check live crowd levels yet, but this route favors closer stops and avoids making you bounce across the neighborhood.',
+      cafe: 'I can lean the route toward cafe and dessert stops when nearby options fit your area and time.',
     },
     sourceKind: 'local_dataset',
-    sourceLabel: 'Local place dataset',
+    sourceLabel: 'Walkable route',
     mode: getRouteMode(mood),
     refinementKeys,
     stops,
@@ -2498,11 +2734,8 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementInput = null, options
   const stops = selected.map((place, index) => (
     placeToRouteStop(place, index, selected[index - 1], selected.length, maxWalkMinutes)
   ));
-  const estimatedTravelMinutes = stops.reduce((sum, stop) => sum + Number(stop.walk || 0), 0);
-  const walkingMinutes = stops.reduce((sum, stop) => (
-    stop.legSuggestedMode === 'walk' ? sum + Number(stop.walk || 0) : sum
-  ), 0);
-  const stayMinutes = stops.reduce((sum, stop) => sum + Number(stop.stay || 0), 0);
+  const timeConfig = getTimeConfig(state.time);
+  const timing = applySuggestedStayPace(stops, timeConfig);
 
   return {
     label: areaConfig.label,
@@ -2510,17 +2743,19 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementInput = null, options
     center: getRouteCenter(stops) || areaConfig.center,
     defaultMood: state.mood,
     meta: {
-      total: formatMinutes(stayMinutes + estimatedTravelMinutes),
-      walking: `${walkingMinutes} min`,
+      total: formatMinutes(timing.displayTotalMinutes),
+      walking: `${timing.walkingMinutes} min`,
+      totalLabel: timing.totalLabel,
+      timeNote: timing.adjusted ? timing.note : '',
     },
     why: appendRoutePreferenceExplanation(buildRouteWhy(areaConfig.label, refinementKeys), routePreferences),
     ask: {
-      why: `This route uses processed Naver place data first, then ranks places for ${areaConfig.label} and your selected mood.`,
-      crowd: 'I can prefer quieter categories and nearby side-street matches, but this static version does not check live crowd levels.',
-      cafe: 'I can prioritize cafe-category saved places when the curated list has enough nearby candidates.',
+      why: `This ${getRouteStructureLabel(stops.length)} is tuned for ${areaConfig.label}, ${timeConfig.label}, and your selected mood.`,
+      crowd: 'I can prefer quieter nearby categories, but I do not check live crowd levels yet.',
+      cafe: 'I can prioritize cafe-style stops when nearby options fit your area and time.',
     },
     sourceKind: 'processed',
-    sourceLabel: 'Real Naver places',
+    sourceLabel: 'Walkable route',
     mode,
     refinementKeys,
     stops,
@@ -2528,11 +2763,11 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementInput = null, options
 }
 
 function buildRouteWhy(areaLabel, refinementInput = null) {
-  const base = `Built from the processed Naver place dataset for ${areaLabel}. Stops are ranked by category fit, area match, availability, and saved-list priority.`;
+  const base = `Picked for walkability, local feel, and your selected mood near ${areaLabel}. Chosen to keep the route realistic, local, and easy to follow.`;
   const keys = normalizeRefinementKeys(refinementInput);
   if (!keys.length) return base;
   const labels = getRefinementLabels(keys);
-  return `${base} Adjusted for: ${labels.join(' · ')}.`;
+  return `${base} Tuned for: ${labels.join(' · ')}.`;
 }
 
 function appendRoutePreferenceExplanation(why, routePreferences) {
@@ -2584,7 +2819,7 @@ function placeToRouteStop(place, index, previousPlace, totalStops = 4, maxWalkMi
 function buildPlaceWhy(place, sourceTag) {
   const category = place.categoryName || MIRO_CATEGORY_LABELS[place.miroCategory] || 'saved place';
   const status = place.available === false ? ' It is marked unavailable in the source export.' : '';
-  return `${sourceTag} · ${category}${place.address ? ` near ${place.address}` : ''}.${status}`;
+  return `Picked for ${category}${place.address ? ` near ${place.address}` : ''}.${status}`;
 }
 
 function getShortAddress(address) {
@@ -2636,7 +2871,7 @@ function buildMockFallbackRoute(routeKey, notice = '') {
     ...fallback,
     why: notice ? `${notice} ${fallback.why}` : fallback.why,
     sourceKind: 'mock',
-    sourceLabel: 'Prototype fallback',
+    sourceLabel: 'Starter route',
     fallbackNotice: notice,
   };
 }
@@ -2659,7 +2894,7 @@ function buildEmptyRealRoute(routeKey, message) {
       cafe: message,
     },
     sourceKind: 'processed',
-    sourceLabel: 'Real Naver places',
+    sourceLabel: 'Walkable route',
     mode: getRouteMode(state.mood),
     stops: [],
   };
@@ -2674,21 +2909,21 @@ function resolveRouteForCurrentSelection(routeKey, refinementInput = getActiveRe
 
   if (MOCK_ROUTES_ENABLED) {
     debugRouteRecommendation('fallback_route', { routeKey, refinementKeys, reason: 'mock_mode_enabled' });
-    return buildMockFallbackRoute(routeKey, 'Using prototype fallback because mock mode is enabled.');
+    return buildMockFallbackRoute(routeKey, 'Using a starter route while this preview mode is active.');
   }
 
   if (curatedPlaceState.failed) {
     debugRouteRecommendation('fallback_route', { routeKey, refinementKeys, reason: 'local_data_load_failed' });
-    return buildMockFallbackRoute(routeKey, 'Local place data could not be loaded, so this is a prototype fallback.');
+    return buildMockFallbackRoute(routeKey, 'We could not confirm enough nearby matches, so this starter route keeps the plan walkable.');
   }
 
   if (!curatedPlaceState.places.length) {
     debugRouteRecommendation('fallback_route', { routeKey, refinementKeys, reason: 'no_local_places_loaded' });
-    return buildMockFallbackRoute(routeKey, 'No local places are loaded yet, so this is a prototype fallback.');
+    return buildMockFallbackRoute(routeKey, 'We could not confirm enough nearby matches, so this starter route keeps the plan walkable.');
   }
 
   const notice = runtimeContext.locationError
-    || 'Not enough local dataset places matched this area, time, and mood, so this is a prototype fallback.';
+    || 'Not enough nearby matches fit this exact area, time, and mood, so this starter route keeps the plan walkable.';
   debugRouteRecommendation('fallback_route', {
     routeKey,
     refinementKeys,
@@ -2706,13 +2941,13 @@ const LOADING_STEPS = [
   'Reading the streets of {area}',
   'Asking who\'s actually there',
   'Skipping the busy main strip',
-  'Picking 4 stops that fit your time',
+  'Picking stops that fit your time',
   'Drawing your route',
 ];
 
 const REFINE_TEXTS = {
   walk: { applied: 'Refined for a more compact route.', undo: 'Removed the compact-route refinement.' },
-  local: { applied: 'Refined toward local and saved-list signals.', undo: 'Removed the local-first refinement.' },
+  local: { applied: 'Refined toward more local-feeling stops.', undo: 'Removed the local-first refinement.' },
   cheap: { applied: 'Refined toward budget-friendly categories.', undo: 'Removed the budget-friendly refinement.' },
   cafe: { applied: 'Refined toward more cafe stops.', undo: 'Removed the cafe-forward refinement.' },
   quiet: { applied: 'Refined toward quieter and less tourist-heavy stops.', undo: 'Removed the quiet-route refinement.' },
@@ -2796,12 +3031,21 @@ const NAVER_REVIEW_COUNT_PATHS = [
 ];
 
 const ASK_RESPONSES = {
-  why: route => route.ask.why,
-  crowd: route => route.ask.crowd,
-  time: route => `Yes — for ${route.label}, cut stop 4 and trim the longest stay. You can keep the first three stops to about 90 minutes.`,
-  cafe: route => route.ask.cafe,
-  cheap: route => `I can keep ${route.label} budget-friendly by making stop 1 the main spend and turning the last stop into a browse-only stop.`,
-  open: route => `For this real saved-place route, I am not checking live hours yet. Before going, verify ${route.stops.map(stop => stop.name).slice(0, 2).join(' and ')} first.`,
+  why: route => route?.ask?.why || 'This route is tuned around your current area, time, and mood.',
+  crowd: route => route?.ask?.crowd || 'I do not check live crowd levels yet, but you can use the route stops as a compact plan and skip any stop that feels too busy.',
+  time: route => {
+    const stopCount = route?.stops?.length || 0;
+    const timingNote = route?.meta?.timeNote;
+    const base = timingNote || `This ${getRouteStructureLabel(stopCount)} is paced for your ${getTimeConfig(state.time).label} window.`;
+    return `${base} If you need it closer to 90 minutes, shorten the longest stay or finish after ${stopCount >= 2 ? 'the second stop' : 'this stop'}.`;
+  },
+  cafe: route => route?.ask?.cafe || 'I can lean the route toward cafe and dessert stops when nearby options fit your area and time.',
+  cheap: route => `I can keep ${route?.label || 'this route'} budget-friendly by treating one stop as the main spend and keeping the rest lighter, like a cafe, browse, or walk stop when available.`,
+  open: route => {
+    const names = (route?.stops || []).map(stop => stop.name).slice(0, 2).filter(Boolean);
+    const verifyText = names.length ? ` Verify ${names.join(' and ')} in the map links before going.` : '';
+    return `I am not checking live hours yet.${verifyText}`;
+  },
 };
 
 // ========== State ==========
@@ -3060,7 +3304,7 @@ async function applyRouteForCurrentSelection() {
 }
 
 function applyResolvedRoute(route) {
-  currentRoute = route;
+  currentRoute = prepareRouteForDisplay(route);
   const routeToken = bumpRouteRenderToken();
   // Preserve the user's onboarding selection (e.g. 'Hongdae / Yeonnam' or
   // 'Near me') in state.area so inline-builder chip sync and onboarding restart
@@ -3071,6 +3315,7 @@ function applyResolvedRoute(route) {
 
   updateRouteCopy();
   renderStops();
+  resetFloatCard();
   hideFloatCard();
   updateMarkerActive();
 
@@ -3084,6 +3329,12 @@ function updateRouteCopy() {
   rsSummary.textContent = [currentRoute.label, state.time, state.mood, sourceLabel].filter(Boolean).join(' · ');
   document.getElementById('map-location-label').textContent = currentRoute.mapLabel;
   document.getElementById('why-body').textContent = currentRoute.why;
+  const whyList = document.querySelector('.ks-why-list');
+  if (whyList) {
+    whyList.innerHTML = buildRouteWhyItems(currentRoute)
+      .map(item => `<li>${escapeHtml(item)}</li>`)
+      .join('');
+  }
 
   setRouteMetaDefault();
 }
@@ -3106,14 +3357,14 @@ function setRouteMetaItem(index, value, label) {
 
 function setRouteMetaDefault() {
   setRouteMetaItem(0, String(currentRoute.stops.length), 'stops');
-  setRouteMetaItem(1, currentRoute.meta.total, 'total');
+  setRouteMetaItem(1, currentRoute.meta.total, currentRoute.meta.totalLabel || 'total');
   setRouteMetaItem(2, [currentRoute.meta.walking, currentRoute.meta.distance].filter(Boolean).join(' · '), 'walking');
 }
 
 function setNaverDirectionsMeta(directions) {
   setRouteMetaItem(0, String(currentRoute.stops.length), 'stops');
-  setRouteMetaItem(1, directions.durationText, 'Naver ETA');
-  setRouteMetaItem(2, directions.distanceText, 'real route');
+  setRouteMetaItem(1, directions.durationText, 'map ETA');
+  setRouteMetaItem(2, directions.distanceText, 'route distance');
 }
 
 function renderStops() {
@@ -3169,7 +3420,7 @@ function renderStops() {
         <div class="stop-name">${escapeHtml(s.name)}</div>
         ${why ? `<div class="ks-stop-why">${escapeHtml(why)}</div>` : ''}
         <div class="stop-meta">
-          <span class="stop-tag">⏱ ${s.stay} min</span>
+          <span class="stop-tag">⏱ ${getStopDisplayStay(s)} min</span>
           ${(s.tags || []).map(t => `<span class="stop-tag">${escapeHtml(t)}</span>`).join('')}
         </div>
         <div class="ks-stop-actions">${actions.join('')}</div>
@@ -3406,7 +3657,7 @@ function setMapProvider(provider) {
 
   syncMapProviderButtons();
   renderStops();
-  hideFloatCard();
+  clearActiveStop();
   if (provider !== 'naver') {
     setRouteMetaDefault();
   }
@@ -4121,16 +4372,16 @@ function updateStopMobilityFromTmap(stop, tmapRoute, maxWalkMinutes) {
 function refreshCurrentRouteMobilityMeta() {
   if (!currentRoute || !Array.isArray(currentRoute.stops)) return;
 
-  const travelMinutes = currentRoute.stops.reduce((sum, stop) => sum + Number(stop.walk || 0), 0);
-  const walkingMinutes = currentRoute.stops.reduce((sum, stop) => (
-    stop.legSuggestedMode === 'walk' ? sum + Number(stop.walk || 0) : sum
-  ), 0);
-  const stayMinutes = currentRoute.stops.reduce((sum, stop) => sum + Number(stop.stay || 0), 0);
+  const timing = applySuggestedStayPace(currentRoute.stops, getTimeConfig(state.time));
+  const distanceMeters = currentRoute.stops.reduce((sum, stop) => sum + Number(stop.legDistanceMeters || 0), 0);
 
   currentRoute.meta = {
     ...(currentRoute.meta || {}),
-    total: formatMinutes(stayMinutes + travelMinutes),
-    walking: `${walkingMinutes} min`,
+    total: formatMinutes(timing.displayTotalMinutes),
+    walking: `${timing.walkingMinutes} min`,
+    distance: distanceMeters > 0 ? formatDistanceMeters(distanceMeters) : currentRoute.meta?.distance || '',
+    totalLabel: timing.totalLabel || 'total',
+    timeNote: timing.adjusted ? timing.note : '',
   };
 }
 
@@ -4140,8 +4391,10 @@ function syncRouteGeometryLabelUpdates(geometry) {
   refreshCurrentRouteMobilityMeta();
   updateRouteCopy();
   renderStops();
-  if (state.activeStop !== null) {
+  if (state.activeStop !== null && currentRoute.stops[state.activeStop]) {
     activateStop(state.activeStop, { pan: false, scroll: false });
+  } else {
+    clearActiveStop();
   }
 }
 
@@ -4631,20 +4884,31 @@ function bindMapControls() {
 
 // ========== Sync activation (list ↔ map ↔ floating card) ==========
 function activateStop(idx, options = {}) {
-  const s = currentRoute.stops[idx];
-  if (!s) return;
+  if (!currentRoute || !Array.isArray(currentRoute.stops)) {
+    clearActiveStop();
+    return;
+  }
+  const normalizedIdx = Number(idx);
+  const s = currentRoute.stops[normalizedIdx];
+  if (!s) {
+    clearActiveStop();
+    return;
+  }
 
-  state.activeStop = idx;
+  state.activeStop = normalizedIdx;
   document.querySelectorAll('.stop').forEach(el => {
-    el.classList.toggle('active', parseInt(el.dataset.idx) === idx);
+    el.classList.toggle('active', parseInt(el.dataset.idx, 10) === normalizedIdx);
   });
   updateMarkerActive();
 
   const card = document.getElementById('float-card');
+  if (!card) return;
+  card.dataset.routeToken = String(routeRenderToken);
+  card.dataset.stop = String(normalizedIdx);
   document.getElementById('fc-num').textContent = s.num;
   document.getElementById('fc-name').textContent = s.name;
   document.getElementById('fc-type').textContent = s.type;
-  document.getElementById('fc-stay').textContent = `⏱ ${s.stay} min stay`;
+  document.getElementById('fc-stay').textContent = `⏱ ${getStopDisplayStay(s)} min stay`;
   document.getElementById('fc-walk').textContent = s.walk > 0
     ? (s.legMobilityLabel || `🚶 ${s.walk} min walk`)
     : '📍 Start here';
@@ -4654,15 +4918,15 @@ function activateStop(idx, options = {}) {
   if (
     mapProviderState.active === 'naver' &&
     naverMapState.map &&
-    naverMapState.markers[idx] &&
+    naverMapState.markers[normalizedIdx] &&
     options.pan !== false
   ) {
-    naverMapState.map.panTo(naverMapState.markers[idx].position);
-  } else if (kakaoMapState.map && kakaoMapState.markers[idx] && options.pan !== false) {
-    kakaoMapState.map.panTo(kakaoMapState.markers[idx].position);
+    naverMapState.map.panTo(naverMapState.markers[normalizedIdx].position);
+  } else if (kakaoMapState.map && kakaoMapState.markers[normalizedIdx] && options.pan !== false) {
+    kakaoMapState.map.panTo(kakaoMapState.markers[normalizedIdx].position);
   }
 
-  const activeEl = document.querySelector(`.left-pane .stop[data-idx="${idx}"]`);
+  const activeEl = document.querySelector(`.left-pane .stop[data-idx="${normalizedIdx}"]`);
   if (activeEl && options.scroll !== false) {
     activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -4670,7 +4934,7 @@ function activateStop(idx, options = {}) {
 
 function updateMarkerActive() {
   kakaoMapState.markers.forEach((marker, idx) => {
-    if (!marker) return;
+    if (!marker || !currentRoute?.stops?.[idx]) return;
     const isActive = state.activeStop === idx;
     marker.element.classList.toggle('active', isActive);
     if (typeof marker.overlay.setZIndex === 'function') {
@@ -4679,7 +4943,7 @@ function updateMarkerActive() {
   });
 
   naverMapState.markers.forEach((marker, idx) => {
-    if (!marker) return;
+    if (!marker || !currentRoute?.stops?.[idx]) return;
     const isActive = state.activeStop === idx;
     marker.marker.setIcon(createNaverMarkerIcon(currentRoute.stops[idx], idx, isActive));
     if (typeof marker.marker.setZIndex === 'function') {
@@ -4695,8 +4959,25 @@ function clearActiveStop() {
   hideFloatCard();
 }
 
+function resetFloatCard() {
+  const card = document.getElementById('float-card');
+  if (!card) return;
+  card.dataset.routeToken = '';
+  card.dataset.stop = '';
+  document.getElementById('fc-num').textContent = '';
+  document.getElementById('fc-name').textContent = 'Select a route stop';
+  document.getElementById('fc-type').textContent = 'Tap a marker or stop to see details.';
+  document.getElementById('fc-stay').textContent = '';
+  document.getElementById('fc-walk').textContent = '';
+  document.getElementById('fc-why').textContent = '';
+}
+
 function hideFloatCard() {
-  document.getElementById('float-card').classList.remove('show');
+  const card = document.getElementById('float-card');
+  if (!card) return;
+  card.classList.remove('show');
+  card.dataset.routeToken = '';
+  card.dataset.stop = '';
 }
 
 document.getElementById('fc-close').addEventListener('click', clearActiveStop);
@@ -4708,7 +4989,7 @@ mapStage.addEventListener('click', e => {
     !e.target.closest('.ask-fab') &&
     !e.target.closest('.map-status')
   ) {
-    hideFloatCard();
+    clearActiveStop();
   }
 });
 
@@ -4735,7 +5016,7 @@ function updateRefineSummary() {
     summary.hidden = true;
     return;
   }
-  summary.textContent = `Adjusted for: ${labels.join(' · ')}`;
+  summary.textContent = `Tuned for: ${labels.join(' · ')}`;
   summary.hidden = false;
 }
 
@@ -4856,7 +5137,7 @@ function applyRefinement(key) {
       showToast(openNotice);
     } else {
       const labels = getRefinementLabels(nextActive);
-      showToast(`Adjusted for: ${labels.join(' · ')}`);
+      showToast(`Tuned for: ${labels.join(' · ')}`);
     }
     flashWhy();
   });
@@ -5184,7 +5465,9 @@ document.querySelectorAll('.act-btn').forEach(btn => {
 
 document.getElementById('saved-btn').addEventListener('click', () => {
   const savedRoutes = getSavedRoutes();
-  showToast(savedRoutes.length ? `${savedRoutes.length} saved route${savedRoutes.length === 1 ? '' : 's'} in this browser.` : 'No saved routes yet — save this one to start your guide.');
+  showToast(savedRoutes.length
+    ? `${savedRoutes.length} saved route${savedRoutes.length === 1 ? '' : 's'} in this browser.`
+    : 'Saved routes are coming in Early Access. Save this route here, or join to revisit routes later.');
 });
 
 // ========== Early access signup ==========
@@ -5200,6 +5483,8 @@ const earlyAccessSubmit = document.getElementById('early-access-submit');
 const earlyAccessNameInput = document.getElementById('ea-name');
 const earlyAccessEmailInput = document.getElementById('ea-email');
 const earlyAccessConsent = document.getElementById('ea-consent');
+const earlyAccessMore = document.getElementById('early-access-more');
+const earlyAccessOptional = document.getElementById('early-access-optional');
 
 function isEarlyAccessOpen() {
   return !!earlyAccessModal?.classList.contains('open');
@@ -5214,11 +5499,19 @@ function setEarlyAccessError(message, focusEl) {
   }
 }
 
+function setEarlyAccessOptionalOpen(open) {
+  if (!earlyAccessMore || !earlyAccessOptional) return;
+  earlyAccessOptional.hidden = !open;
+  earlyAccessMore.setAttribute('aria-expanded', String(open));
+  earlyAccessMore.textContent = open ? 'Hide optional details' : 'Add optional details';
+}
+
 function openEarlyAccess() {
   if (!earlyAccessModal) return;
   earlyAccessModal.classList.add('open');
   earlyAccessModal.setAttribute('aria-hidden', 'false');
   setEarlyAccessError('');
+  setEarlyAccessOptionalOpen(false);
   if (earlyAccessForm && !earlyAccessForm.hidden) {
     setTimeout(() => earlyAccessNameInput?.focus(), 60);
   }
@@ -5328,6 +5621,9 @@ earlyAccessClose?.addEventListener('click', closeEarlyAccess);
 earlyAccessDone?.addEventListener('click', closeEarlyAccess);
 earlyAccessModal?.querySelector('[data-early-access-close]')?.addEventListener('click', closeEarlyAccess);
 earlyAccessForm?.addEventListener('submit', submitEarlyAccess);
+earlyAccessMore?.addEventListener('click', () => {
+  setEarlyAccessOptionalOpen(Boolean(earlyAccessOptional?.hidden));
+});
 
 // ========== Ask Miro drawer ==========
 const askDrawer = document.getElementById('ask-drawer');

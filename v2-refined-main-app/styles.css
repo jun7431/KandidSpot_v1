@@ -1006,14 +1006,13 @@ input { font-family: inherit; }
 
   .split { flex-direction: column; }
 
-  /* Map first on mobile */
   .right-pane {
-    order: 1;
+    order: 7;
     height: 56vh;
     min-height: 360px;
   }
   .left-pane {
-    order: 2;
+    order: 1;
     width: 100%;
     border-right: none;
     border-top: 1px solid var(--border);
@@ -2428,6 +2427,13 @@ a:focus-visible {
   line-height: 1.6;
 }
 
+.early-access-copy .early-access-reassurance {
+  margin-top: 10px;
+  color: rgba(26, 26, 24, 0.62);
+  font-family: var(--ks-mono);
+  font-size: 12px;
+}
+
 .early-access-form {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2445,8 +2451,34 @@ a:focus-visible {
 .early-access-field-wide,
 .early-access-consent,
 .early-access-error,
+.early-access-more,
 .early-access-submit {
   grid-column: 1 / -1;
+}
+
+.early-access-more {
+  min-height: 46px;
+  border: 1.5px solid var(--ks-rule);
+  border-radius: 999px;
+  background: var(--ks-paper);
+  color: var(--ks-ink);
+  font-family: var(--ks-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+
+.early-access-more:hover {
+  background: var(--ks-yellow);
+}
+
+.early-access-optional {
+  display: contents;
+}
+
+.early-access-optional[hidden] {
+  display: none;
 }
 
 .early-access-field span,
@@ -2685,21 +2717,11 @@ a:focus-visible {
 .rs-current {
   position: relative;
   min-height: 52px;
-  padding-left: 66px;
+  padding-left: 0;
 }
 
 .rs-current::before {
-  content: "04";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--ks-blue);
-  font-family: var(--ks-display);
-  font-size: 44px;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 1;
+  content: none;
 }
 
 .rs-label,
@@ -3741,15 +3763,71 @@ a:focus-visible {
   }
 
   .left-pane {
+    display: contents;
     width: 100%;
     border-right: 0;
     border-top: 1.5px solid var(--ks-rule);
   }
 
+  .route-summary-bar {
+    order: 1;
+  }
+
+  .builder {
+    order: 2;
+  }
+
+  .result-wrap {
+    display: contents;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .loading-state {
+    position: fixed;
+    inset: 64px 0 0;
+    z-index: 170;
+  }
+
+  .why-card {
+    order: 3;
+    margin-left: 24px;
+    margin-right: 24px;
+  }
+
+  .ks-confidence {
+    order: 4;
+    margin-left: 24px;
+    margin-right: 24px;
+  }
+
+  .timeline-section {
+    order: 5;
+    margin-left: 24px;
+    margin-right: 24px;
+  }
+
+  .action-bar {
+    order: 6;
+  }
+
   .right-pane {
-    order: -1;
+    order: 7;
     min-height: 460px;
+    border-top: 1.5px solid var(--ks-rule);
     border-bottom: 0;
+  }
+
+  .ks-import {
+    order: 8;
+    margin-left: 24px;
+    margin-right: 24px;
+  }
+
+  .refine-section {
+    order: 9;
+    margin-left: 24px;
+    margin-right: 24px;
   }
 
   .map-stage {
@@ -3812,11 +3890,11 @@ a:focus-visible {
   }
 
   .rs-current {
-    padding-left: 50px;
+    padding-left: 0;
   }
 
   .rs-current::before {
-    font-size: 34px;
+    content: none;
   }
 
   .builder {
@@ -3826,6 +3904,15 @@ a:focus-visible {
 
   .result-wrap {
     padding: 18px 16px 24px;
+  }
+
+  .why-card,
+  .ks-confidence,
+  .timeline-section,
+  .ks-import,
+  .refine-section {
+    margin-left: 16px;
+    margin-right: 16px;
   }
 
   .section-head h3,
@@ -3847,6 +3934,16 @@ a:focus-visible {
 
   .action-bar {
     padding: 12px 16px;
+  }
+
+  .ask-fab {
+    right: 16px;
+    bottom: 16px;
+    max-width: calc(100% - 32px);
+  }
+
+  .float-card {
+    bottom: 74px;
   }
 
   .onboarding {
