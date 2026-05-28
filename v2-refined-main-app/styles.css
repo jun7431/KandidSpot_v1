@@ -4097,3 +4097,346 @@ a:focus-visible {
     align-items: stretch;
   }
 }
+
+/* =================================================================
+   KANDID SPOT — Mobile density refinements (compact pass)
+   Reduces vertical scroll in onboarding step UI and main-app input
+   chrome. Mobile-only (<= 720px). Desktop is intentionally untouched.
+   ================================================================= */
+@media (max-width: 720px) {
+  /* Top bar — slimmer */
+  .top-bar {
+    height: 56px;
+    padding: 0 12px;
+  }
+  .brand-name::before,
+  .ob-brand-name::before {
+    font-size: 16px;
+  }
+  .ghost-btn {
+    padding: 6px 9px;
+    font-size: 11px;
+  }
+  .early-access-btn {
+    min-height: 30px;
+    padding: 6px 10px;
+    font-size: 10.5px;
+  }
+
+  /* Onboarding header & stage padding */
+  .ob-header {
+    padding: 10px 14px;
+  }
+  .ob-progress { width: 110px; }
+  .ob-progress-label { font-size: 10.5px; }
+  .ob-stage {
+    padding: 12px 14px 22px;
+  }
+
+  /* Hero (step 1) — pull the type back to mobile-sane */
+  .ks-hero {
+    margin: 0 auto 8px;
+    padding: 2px 4px 0;
+  }
+  .ks-eyebrow {
+    font-size: 11px;
+    padding: 4px 10px 4px 8px;
+  }
+  .ks-headline {
+    margin: 8px 0 0;
+    font-size: clamp(24px, 7.5vw, 30px);
+    line-height: 1.08;
+  }
+  .ks-lead {
+    margin-top: 6px;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .ks-step-label {
+    margin: 10px auto 4px;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+  .ks-step-helper {
+    font-size: 12.5px;
+    margin-bottom: 8px;
+  }
+
+  /* Step question headlines */
+  .ob-q-h1 {
+    font-size: clamp(22px, 6.5vw, 28px);
+    margin-bottom: 6px;
+  }
+  .ob-q-sub {
+    font-size: 13px;
+    margin-bottom: 12px;
+    line-height: 1.45;
+  }
+
+  /* Option grids — restore 2-column on mobile to halve scroll length */
+  .ob-options,
+  .ob-options-area,
+  .ob-options-time,
+  .ob-options-start,
+  .ob-options-mood {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .ob-option {
+    min-height: 0;
+    padding: 9px 11px 9px;
+    border-radius: 11px;
+    gap: 2px;
+  }
+  .ob-option.selected::after {
+    top: 8px;
+    right: 8px;
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+  .ob-option-wide {
+    padding: 9px 12px;
+    column-gap: 10px;
+  }
+  .ob-option-wide .ob-emoji {
+    font-size: 20px;
+  }
+  .ob-emoji {
+    font-size: 19px;
+    margin-bottom: 2px;
+  }
+  .ob-option-label {
+    font-size: 13.5px;
+    line-height: 1.2;
+  }
+  .ob-option-sub {
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  /* Context input (step 1) */
+  .ob-context-field {
+    margin: -2px auto 12px;
+  }
+  .ob-context-label {
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+  .ob-context-field input {
+    padding: 9px 12px;
+    font-size: 13px;
+    border-radius: 10px;
+  }
+  .ob-context-hint {
+    font-size: 11px;
+    margin-top: 4px;
+  }
+
+  /* Onboarding action row buttons */
+  .ob-actions {
+    gap: 8px;
+  }
+  .ob-back,
+  .ob-next {
+    padding: 10px 14px;
+    font-size: 12.5px;
+    border-radius: 10px;
+  }
+  .ob-actions-right .ob-customize-more,
+  .ob-actions-right .ob-skip,
+  .ob-actions-right .ob-next {
+    padding: 10px 12px;
+    font-size: 12.5px;
+  }
+  .ob-actions-note {
+    font-size: 11px;
+    margin-top: 6px;
+  }
+
+  /* Optional steps (4 + 5) */
+  .ks-optional-tag {
+    font-size: 10px;
+    padding: 3px 9px;
+    margin-bottom: 8px;
+  }
+  .ob-shapes {
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .ob-shape {
+    padding: 11px 14px;
+    border-radius: 13px;
+    gap: 4px;
+  }
+  .ob-shape.selected::after {
+    top: 10px;
+    right: 10px;
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+  .ob-shape-name {
+    font-size: 14px;
+  }
+  .ob-shape-seq {
+    font-size: 12px;
+  }
+  .ob-shape-desc {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .ob-refine-anchors {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .ob-refine-anchor {
+    padding: 10px 12px;
+    border-radius: 12px;
+    gap: 8px;
+  }
+  .ob-refine-role {
+    font-size: 13.5px;
+  }
+  .ob-refine-hint {
+    font-size: 11.5px;
+  }
+  .ob-pref {
+    padding: 5px 10px;
+    font-size: 11.5px;
+  }
+  .ob-refine-foot {
+    font-size: 11.5px;
+    margin-bottom: 12px;
+  }
+
+  /* Onboarding full-page loading */
+  .ob-loading-content {
+    padding: 18px;
+  }
+  .ob-loading-pulse {
+    margin-bottom: 14px;
+    gap: 8px;
+  }
+  .ob-loading-pulse span {
+    width: 12px;
+    height: 12px;
+  }
+  .ob-loading-title {
+    font-size: 16px;
+    margin-bottom: 6px;
+  }
+  .ob-loading-step {
+    font-size: 12.5px;
+  }
+
+  /* Main app — route summary */
+  .route-summary-bar {
+    margin: 12px 12px 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+  }
+  .rs-current { min-height: 0; }
+  .rs-label { font-size: 9.5px; }
+  .rs-value { font-size: 15.5px; }
+  .rs-strap { font-size: 11px; margin-top: 2px; }
+  .rs-toggle {
+    padding: 0 10px;
+    height: 28px;
+  }
+  .rs-toggle-label { font-size: 11.5px; }
+
+  /* Main app — builder */
+  .builder {
+    padding: 10px 14px 12px;
+    gap: 8px;
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+  .builder-row {
+    gap: 8px;
+  }
+  .builder-row-label {
+    font-size: 10px;
+    width: 36px;
+  }
+  .chip {
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+  .build-btn {
+    padding: 10px 14px;
+    font-size: 13px;
+    border-radius: 10px;
+  }
+
+  /* Main app — result cards spacing */
+  .result-wrap {
+    padding: 12px 12px 16px;
+  }
+  .why-card,
+  .ks-confidence,
+  .timeline-section,
+  .ks-import,
+  .refine-section {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+  .why-card {
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+  }
+  .why-body { font-size: 13px; margin-bottom: 8px; line-height: 1.5; }
+  .ks-why-list { margin: 6px 0 8px; }
+  .ks-why-list li { font-size: 12px; padding-left: 16px; }
+  .route-meta {
+    padding-top: 8px;
+    font-size: 11.5px;
+    gap: 8px;
+  }
+  .ks-confidence {
+    padding: 12px 14px 10px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+  }
+  .ks-conf-head { margin-bottom: 8px; }
+  .ks-conf-list { gap: 6px 10px; }
+  .ks-conf-item { font-size: 12px; }
+  .timeline-section { margin-bottom: 14px; }
+  .section-head { margin-bottom: 8px; }
+  .ks-import {
+    padding: 11px 14px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+  }
+  .ks-import-head { margin-bottom: 8px; }
+  .refine-section { margin-bottom: 12px; }
+  .refine-chip {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  /* Action bar */
+  .action-bar {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+  .act-btn {
+    padding: 9px 12px;
+    font-size: 11.5px;
+  }
+}
+
+/* Very narrow phones — keep 2-col grids but tighten typography */
+@media (max-width: 360px) {
+  .ks-headline { font-size: 24px; }
+  .ob-q-h1 { font-size: 22px; }
+  .ob-option { padding: 8px 9px; }
+  .ob-option-label { font-size: 12.5px; }
+  .ob-option-sub { font-size: 10.5px; }
+  .ob-emoji { font-size: 17px; }
+  .chip { padding: 5px 9px; font-size: 11.5px; }
+}
