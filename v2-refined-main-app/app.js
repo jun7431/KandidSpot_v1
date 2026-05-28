@@ -5959,8 +5959,8 @@ const OB_LOADING_STEPS = [
   'Finding a route you can start now',
 ];
 
-const OB_REQUIRED_LAST_STEP = 4;
-const OB_FINAL_STEP = 6;
+const OB_REQUIRED_LAST_STEP = 3;
+const OB_FINAL_STEP = 5;
 
 const onboarding = {
   el: document.getElementById('onboarding'),
@@ -6054,7 +6054,7 @@ const onboarding = {
       const skipBtn = screen.querySelector('.ob-skip');
       if (nextBtn) nextBtn.addEventListener('click', () => this.nextStep());
       if (backBtn) backBtn.addEventListener('click', () => this.prevStep());
-      if (customizeBtn) customizeBtn.addEventListener('click', () => this.goToStep(5));
+      if (customizeBtn) customizeBtn.addEventListener('click', () => this.goToStep(4));
       if (skipBtn) {
         skipBtn.addEventListener('click', () => {
           this.skipOptionalStep(parseInt(screen.dataset.step, 10));
@@ -6107,15 +6107,17 @@ const onboarding = {
   updateNextEnabled() {
     const screen = this.el.querySelector(`.ob-screen[data-step="${this.step}"]`);
     if (!screen) return;
-    const options = screen.querySelector('.ob-options');
+    const optionGroups = Array.from(screen.querySelectorAll('.ob-options'));
     const nextBtn = screen.querySelector('.ob-next');
     const customizeBtn = screen.querySelector('.ob-customize-more');
-    // Required steps: enable Next only when this step's group has a selection.
-    if (options && nextBtn) {
-      const groupKey = options.dataset.group;
-      const ready = groupKey === 'startTimePeriod' && this.selections[groupKey] === 'custom'
-        ? Boolean(getCustomStartTimeValue(this.selections.customStartTime))
-        : Boolean(this.selections[groupKey]);
+    // Required steps: enable Next only when this screen's required groups have selections.
+    if (optionGroups.length && nextBtn) {
+      const ready = optionGroups.every(group => {
+        const groupKey = group.dataset.group;
+        return groupKey === 'startTimePeriod' && this.selections[groupKey] === 'custom'
+          ? Boolean(getCustomStartTimeValue(this.selections.customStartTime))
+          : Boolean(this.selections[groupKey]);
+      });
       nextBtn.disabled = !ready;
       if (customizeBtn) customizeBtn.disabled = !ready;
       return;
@@ -6130,12 +6132,12 @@ const onboarding = {
       this.triggerBuild();
       return;
     }
-    // Optional Step 5 "Continue" — advance to Step 6.
-    if (this.step === 5) {
-      this.goToStep(6);
+    // Optional Step 4 "Continue" — advance to Step 5.
+    if (this.step === 4) {
+      this.goToStep(5);
       return;
     }
-    // Optional Step 6 "Build my route" — build using existing flow.
+    // Optional Step 5 "Build my route" — build using existing flow.
     if (this.step === OB_FINAL_STEP) {
       this.triggerBuild();
       return;
@@ -6167,8 +6169,8 @@ const onboarding = {
   },
 
   skipOptionalStep(stepNumber) {
-    if (stepNumber === 5) this.clearShapeSelection();
-    if (stepNumber === 6) this.resetRefinePreferences();
+    if (stepNumber === 4) this.clearShapeSelection();
+    if (stepNumber === 5) this.resetRefinePreferences();
     this.triggerBuild();
   },
 

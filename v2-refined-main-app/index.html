@@ -33,10 +33,9 @@
         <div class="ob-step active" data-step="1"></div>
         <div class="ob-step" data-step="2"></div>
         <div class="ob-step" data-step="3"></div>
-        <div class="ob-step" data-step="4"></div>
       </div>
       <div class="ob-progress-label">
-        <span data-progress-required>Step <span id="ob-current">1</span> of 4</span>
+        <span data-progress-required>Step <span id="ob-current">1</span> of 3</span>
         <span data-progress-optional hidden>Customizing · <span id="ob-current-opt">1</span> of 2 · optional</span>
       </div>
     </div>
@@ -61,11 +60,9 @@
         <ol class="ks-flow" aria-label="How it works">
           <li><span class="ks-flow-num">1</span><span class="ks-flow-label">Area</span></li>
           <li class="ks-flow-arrow" aria-hidden="true">→</li>
-          <li><span class="ks-flow-num">2</span><span class="ks-flow-label">Time</span></li>
+          <li><span class="ks-flow-num">2</span><span class="ks-flow-label">Time + start</span></li>
           <li class="ks-flow-arrow" aria-hidden="true">→</li>
-          <li><span class="ks-flow-num">3</span><span class="ks-flow-label">Start</span></li>
-          <li class="ks-flow-arrow" aria-hidden="true">→</li>
-          <li><span class="ks-flow-num">4</span><span class="ks-flow-label">Mood</span></li>
+          <li><span class="ks-flow-num">3</span><span class="ks-flow-label">Mood</span></li>
           <li class="ks-flow-arrow" aria-hidden="true">→</li>
           <li class="ks-flow-result"><span class="ks-flow-label">Your route</span></li>
         </ol>
@@ -124,9 +121,9 @@
       </div>
     </section>
 
-    <!-- Step 2: Time -->
+    <!-- Step 2: Time + starting time -->
     <section class="ob-screen" data-step="2">
-      <h1 class="ob-q-h1">How much time do you have?</h1>
+      <h1 class="ob-q-h1">How much time do you have, and when should we plan this route for?</h1>
       <p class="ob-q-sub">We keep the route realistic for the window you've got.</p>
       <div class="ob-options ob-options-time" data-group="time">
         <button class="ob-option" data-value="30–60 min" data-internal-value="time_30_60">
@@ -150,15 +147,6 @@
           <span class="ob-option-sub">Half-day plan</span>
         </button>
       </div>
-      <div class="ob-actions">
-        <button class="ob-back">Back</button>
-        <button class="ob-next" disabled>Next →</button>
-      </div>
-    </section>
-
-    <!-- Step 3: Starting time -->
-    <section class="ob-screen" data-step="3">
-      <h1 class="ob-q-h1">When should we plan this route for?</h1>
       <p class="ob-q-sub">Pick a light starting context. We will not claim live opening hours unless the data supports it.</p>
       <div class="ob-options ob-options-start" data-group="startTimePeriod">
         <button class="ob-option" data-value="morning">
@@ -193,8 +181,8 @@
       </div>
     </section>
 
-    <!-- Step 4: Mood — last required step -->
-    <section class="ob-screen" data-step="4">
+    <!-- Step 3: Mood — last required step -->
+    <section class="ob-screen" data-step="3">
       <h1 class="ob-q-h1">What kind of route fits right now?</h1>
       <p class="ob-q-sub">Pick the mood. We'll handle the order, the timing, and the picks.</p>
       <div class="ob-options ob-options-mood" data-group="mood">
@@ -240,8 +228,8 @@
       <p class="ob-actions-note">You're done with the required steps. Customizing is optional.</p>
     </section>
 
-    <!-- Step 5: Optional · Itinerary shape -->
-    <section class="ob-screen ob-screen-optional" data-step="5">
+    <!-- Step 4: Optional · Itinerary shape -->
+    <section class="ob-screen ob-screen-optional" data-step="4">
       <span class="ks-optional-tag">Optional · 1 of 2 · Itinerary shape</span>
       <h1 class="ob-q-h1">How should the route flow?</h1>
       <p class="ob-q-sub">Pick a feel for the order of stops. Skip and we'll choose for you.</p>
@@ -273,8 +261,8 @@
       </div>
     </section>
 
-    <!-- Step 6: Optional · Place refinement -->
-    <section class="ob-screen ob-screen-optional" data-step="6">
+    <!-- Step 5: Optional · Place refinement -->
+    <section class="ob-screen ob-screen-optional" data-step="5">
       <span class="ks-optional-tag">Optional · 2 of 2 · Place preferences</span>
       <h1 class="ob-q-h1">Lean it your way.</h1>
       <p class="ob-q-sub">Pin a stop type to make sure it's in. Heart what you'd prefer. Skip is fine — we'll still build the route.</p>
