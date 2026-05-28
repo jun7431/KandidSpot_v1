@@ -357,8 +357,8 @@ const ROUTES = {
 };
 
 // ========== Curated Naver bookmark place data ==========
-const SUBCATEGORIZED_PLACES_URL = 'data/places/processed/miro_places_subcategorized.json';
-const CURATED_PLACES_URL = 'data/miro_places.json';
+const SUBCATEGORIZED_PLACES_URL = '/v2-refined-main-app/data/places/processed/miro_places_subcategorized.json';
+const CURATED_PLACES_URL = '/v2-refined-main-app/data/miro_places.json';
 const MOCK_ROUTES_ENABLED = new URLSearchParams(window.location.search).get('mock') === '1';
 const ROUTE_DEBUG_ENABLED = new URLSearchParams(window.location.search).get('route_debug') === '1';
 

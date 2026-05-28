@@ -1,0 +1,15 @@
+{
+  "redirects": [
+    {
+      "source": "/v2-refined-main-app/index.html",
+      "destination": "/app",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/app",
+      "destination": "/v2-refined-main-app/index.html"
+    }
+  ]
+}
