@@ -2503,19 +2503,29 @@ a:focus-visible {
 
 .early-access-more {
   min-height: 46px;
-  border: 1.5px solid var(--ks-rule);
+  border: 1.5px solid var(--ks-ink-soft);
   border-radius: 999px;
-  background: var(--ks-paper);
+  background: #FBF4DC;
   color: var(--ks-ink);
   font-family: var(--ks-mono);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: lowercase;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 .early-access-more:hover {
-  background: var(--ks-yellow);
+  background: #F6E9B8;
+  border-color: var(--ks-rule);
+}
+
+.early-access-more:focus-visible {
+  border-color: var(--ks-rule);
+}
+
+.early-access-more[aria-expanded="true"] {
+  background: #F2EAD0;
 }
 
 .early-access-optional {
