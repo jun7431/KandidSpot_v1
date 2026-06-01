@@ -6319,6 +6319,243 @@ body {
 }
 
 /* =================================================================
+   Focused layout cleanup: Step 1 utility row, result heading, refine
+   ================================================================= */
+.ob-options-area {
+  align-items: stretch;
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"] {
+  grid-column: auto;
+  min-height: 156px;
+  padding: 68px 16px 16px;
+  border-radius: 12px;
+  background: var(--ks-v2-soft-paper);
+  box-shadow: 4px 4px 0 var(--ks-v2-rule);
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"]::before {
+  inset: 12px 12px auto;
+  height: 44px;
+  border-width: 2px;
+  border-radius: 7px;
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"] .ob-emoji {
+  top: 18px;
+  left: 18px;
+  width: 28px;
+  height: 28px;
+  border-width: 2px;
+  font-size: 15px;
+  box-shadow: 2px 2px 0 var(--ks-v2-rule);
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"] .ob-option-label {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"] .ob-option-sub {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.ob-options-area .ob-context-field {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: none;
+  min-height: 156px;
+  margin: 0;
+  padding: 20px;
+  border: 2px solid var(--ks-v2-rule);
+  border-radius: 12px;
+  background: var(--ks-v2-soft-paper);
+  box-shadow: 4px 4px 0 var(--ks-v2-rule);
+}
+
+.ob-context-label {
+  display: block;
+  margin: 0 0 10px;
+  color: var(--ks-v2-ink);
+  font-family: var(--ks-v2-mono);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.ob-context-label em {
+  color: var(--ks-v2-blue);
+  font-style: normal;
+}
+
+.ob-context-field input {
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 2px solid var(--ks-v2-rule);
+  border-radius: 999px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.ob-context-hint {
+  display: block;
+  margin-top: 9px;
+  color: var(--ks-v2-ink-soft);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.timeline-section .section-head h3::before,
+.timeline-section .section-head h3::after {
+  content: none;
+  display: none;
+}
+
+.timeline-section .section-head {
+  align-items: flex-start;
+  gap: 8px;
+  padding-bottom: 12px;
+}
+
+.timeline-section .section-head h3 {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.timeline-section .section-sub {
+  padding-top: 2px;
+  line-height: 1.25;
+}
+
+.refine-section {
+  margin: 22px 0 16px;
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 2px solid var(--ks-v2-rule);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.refine-section .section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+
+.refine-section .section-head h3 {
+  margin: 0;
+  color: var(--ks-v2-ink);
+  font-family: var(--ks-v2-mono);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.refine-section .section-head h3::before {
+  content: "→ ";
+  color: var(--ks-v2-blue);
+}
+
+.refine-hint {
+  margin: 0;
+  color: var(--ks-v2-ink-soft);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.refine-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.refine-chip {
+  padding: 7px 11px;
+  border: 2px solid var(--ks-v2-rule);
+  border-radius: 999px;
+  background: var(--ks-v2-paper);
+  color: var(--ks-v2-ink);
+  box-shadow: none;
+  font-family: var(--ks-v2-mono);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.refine-chip:hover {
+  background: var(--ks-v2-yellow);
+  color: var(--ks-v2-ink);
+}
+
+.refine-chip.applied,
+.refine-chip.selected {
+  background: var(--ks-v2-blue);
+  color: var(--ks-v2-paper);
+  box-shadow: 3px 3px 0 var(--ks-v2-rule);
+}
+
+.action-bar {
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 2px solid var(--ks-v2-rule);
+  background: var(--ks-v2-paper);
+}
+
+.act-btn {
+  padding: 8px 12px;
+  border-width: 2px;
+  box-shadow: none;
+  font-size: 12px;
+}
+
+.act-btn.primary {
+  box-shadow: 3px 3px 0 var(--ks-v2-rule);
+}
+
+@media (min-width: 721px) and (max-width: 1120px) {
+  .ob-options-area .ob-context-field {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .ob-options-area .ob-context-field {
+    grid-column: 1;
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .ob-options-area .ob-option[data-internal-value="near_me"] {
+    min-height: 138px;
+    padding: 62px 14px 14px;
+  }
+
+  .timeline-section .section-head h3 {
+    font-size: 22px;
+  }
+
+  .refine-section .section-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .action-bar {
+    padding: 8px 12px;
+  }
+}
+
+/* =================================================================
    Design v2 photo-dominant onboarding refinement
    Poster-style area/time cards and folder-like mood cards.
    ================================================================= */
@@ -6601,5 +6838,248 @@ body {
   .ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] {
     min-height: 166px;
     padding: 88px 14px 14px;
+  }
+}
+
+/* =================================================================
+   Final focused layout cleanup overrides
+   Keep this after photo-card rules so spacing fixes win the cascade.
+   ================================================================= */
+.ob-options-area {
+  align-items: stretch;
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"] {
+  grid-column: auto;
+  min-height: 156px;
+  padding: 68px 16px 16px;
+  border-radius: 12px;
+  background: var(--ks-v2-soft-paper);
+  color: var(--ks-v2-ink);
+  box-shadow: 4px 4px 0 var(--ks-v2-rule);
+  text-shadow: none;
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"]::before {
+  inset: 12px 12px auto;
+  height: 44px;
+  border: 2px solid var(--ks-v2-rule);
+  border-radius: 7px;
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"] .ob-emoji {
+  top: 18px;
+  left: 18px;
+  width: 28px;
+  height: 28px;
+  border-width: 2px;
+  font-size: 15px;
+  box-shadow: 2px 2px 0 var(--ks-v2-rule);
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"] .ob-option-label {
+  color: var(--ks-v2-ink);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"] .ob-option-sub {
+  margin-top: 6px;
+  color: var(--ks-v2-ink-soft);
+  font-size: 12px;
+  opacity: 1;
+}
+
+.ob-options-area .ob-context-field {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: none;
+  min-height: 156px;
+  margin: 0;
+  padding: 20px;
+  border: 2px solid var(--ks-v2-rule);
+  border-radius: 12px;
+  background: var(--ks-v2-soft-paper);
+  box-shadow: 4px 4px 0 var(--ks-v2-rule);
+}
+
+.ob-context-label {
+  display: block;
+  margin: 0 0 10px;
+  color: var(--ks-v2-ink);
+  font-family: var(--ks-v2-mono);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.ob-context-label em {
+  color: var(--ks-v2-blue);
+  font-style: normal;
+}
+
+.ob-context-field input {
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 2px solid var(--ks-v2-rule);
+  border-radius: 999px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.ob-context-hint {
+  display: block;
+  margin-top: 9px;
+  color: var(--ks-v2-ink-soft);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.timeline-section .section-head h3::before,
+.timeline-section .section-head h3::after {
+  content: none;
+  display: none;
+}
+
+.timeline-section .section-head {
+  align-items: flex-start;
+  gap: 8px;
+  padding-bottom: 12px;
+}
+
+.timeline-section .section-head h3 {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.timeline-section .section-sub {
+  padding-top: 2px;
+  line-height: 1.25;
+}
+
+.refine-section {
+  margin: 22px 0 16px;
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 2px solid var(--ks-v2-rule);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.refine-section .section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+
+.refine-section .section-head h3 {
+  margin: 0;
+  color: var(--ks-v2-ink);
+  font-family: var(--ks-v2-mono);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.refine-section .section-head h3::before {
+  content: "→ ";
+  color: var(--ks-v2-blue);
+}
+
+.refine-hint {
+  margin: 0;
+  color: var(--ks-v2-ink-soft);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.refine-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.refine-chip {
+  padding: 7px 11px;
+  border: 2px solid var(--ks-v2-rule);
+  border-radius: 999px;
+  background: var(--ks-v2-paper);
+  color: var(--ks-v2-ink);
+  box-shadow: none;
+  font-family: var(--ks-v2-mono);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.refine-chip:hover {
+  background: var(--ks-v2-yellow);
+  color: var(--ks-v2-ink);
+}
+
+.refine-chip.applied,
+.refine-chip.selected {
+  background: var(--ks-v2-blue);
+  color: var(--ks-v2-paper);
+  box-shadow: 3px 3px 0 var(--ks-v2-rule);
+}
+
+.action-bar {
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 2px solid var(--ks-v2-rule);
+  background: var(--ks-v2-paper);
+}
+
+.act-btn {
+  padding: 8px 12px;
+  border-width: 2px;
+  box-shadow: none;
+  font-size: 12px;
+}
+
+.act-btn.primary {
+  box-shadow: 3px 3px 0 var(--ks-v2-rule);
+}
+
+@media (min-width: 721px) and (max-width: 1120px) {
+  .ob-options-area .ob-context-field {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .ob-options-area .ob-context-field {
+    grid-column: 1;
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .ob-options-area .ob-option[data-internal-value="near_me"] {
+    min-height: 138px;
+    padding: 62px 14px 14px;
+  }
+
+  .timeline-section .section-head h3 {
+    font-size: 22px;
+  }
+
+  .refine-section .section-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .action-bar {
+    padding: 8px 12px;
   }
 }
