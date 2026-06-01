@@ -6187,6 +6187,138 @@ body {
 }
 
 /* =================================================================
+   Focused v2 visual cleanup
+   Gangnam photo card, clearer selected state, and lean result stops.
+   ================================================================= */
+.ob-screen-intro.active {
+  padding-top: 4px;
+}
+
+.ob-screen-intro > .ks-step-label {
+  margin-top: 0;
+}
+
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] {
+  min-height: 292px;
+  padding: 0 20px 22px;
+  align-items: flex-start;
+  justify-content: flex-end;
+  color: var(--ks-v2-paper);
+  background: var(--ks-v2-ink);
+  border-radius: 14px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.48);
+}
+
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"]::before {
+  inset: 0;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.18) 45%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/area-gangnam.jpg");
+  background-size: cover;
+  background-position: center;
+  transform: none;
+  filter: saturate(1.05) contrast(1.04);
+}
+
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-emoji {
+  display: none;
+}
+
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-option-label {
+  max-width: 11ch;
+  color: var(--ks-v2-paper);
+  font-size: 29px;
+  line-height: 0.98;
+}
+
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-option-sub {
+  max-width: 24ch;
+  margin-top: 9px;
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 1;
+  font-family: var(--ks-v2-mono);
+  font-size: 12px;
+}
+
+.ob-options-area .ob-option.selected:not([data-internal-value="near_me"]),
+.ob-options-time .ob-option.selected {
+  border-color: var(--ks-v2-yellow);
+  outline: 3px solid var(--ks-v2-yellow);
+  outline-offset: -8px;
+  box-shadow: 9px 9px 0 var(--ks-v2-rule), 0 0 0 5px rgba(255, 210, 61, 0.38);
+}
+
+.ob-options-area .ob-option.selected:not([data-internal-value="near_me"]) .ob-option-label,
+.ob-options-time .ob-option.selected .ob-option-label {
+  color: var(--ks-v2-yellow);
+  text-shadow:
+    0 0 3px rgba(14, 14, 12, 0.85),
+    0 0 12px rgba(255, 210, 61, 0.85),
+    0 3px 14px rgba(0, 0, 0, 0.62);
+}
+
+.ob-options-area .ob-option.selected:not([data-internal-value="near_me"])::after,
+.ob-options-time .ob-option.selected::after {
+  border: 2px solid var(--ks-v2-rule);
+  background: var(--ks-v2-yellow);
+  color: var(--ks-v2-ink);
+  box-shadow: 3px 3px 0 var(--ks-v2-rule);
+}
+
+.stop {
+  min-height: 0;
+  padding: 16px;
+  display: flex;
+  gap: 14px;
+  overflow: visible;
+}
+
+.stop::before {
+  display: none;
+}
+
+.stop-num-col {
+  position: static;
+  flex: 0 0 auto;
+  width: 40px;
+  margin: 0;
+}
+
+.stop-line {
+  display: block;
+  min-height: 24px;
+}
+
+.stop-body {
+  min-width: 0;
+}
+
+.stop-name {
+  font-size: 21px;
+}
+
+@media (max-width: 720px) {
+  .ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] {
+    min-height: 220px;
+    padding: 0 16px 18px;
+  }
+
+  .ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-option-label {
+    font-size: 25px;
+  }
+
+  .stop {
+    min-height: 0;
+    padding: 13px;
+  }
+
+  .stop-num-col {
+    position: static;
+  }
+}
+
+/* =================================================================
    Design v2 photo-dominant onboarding refinement
    Poster-style area/time cards and folder-like mood cards.
    ================================================================= */
