@@ -6556,6 +6556,222 @@ body {
 }
 
 /* =================================================================
+   Phone-only compact onboarding layout
+   ================================================================= */
+@media (max-width: 480px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  .ob-stage {
+    padding: 14px 12px calc(30px + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+  }
+
+  .ob-q-h1 {
+    font-size: 24px;
+    line-height: 1.04;
+  }
+
+  .ob-q-sub,
+  .ks-step-helper {
+    margin-bottom: 16px;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .ob-screen[data-step="1"] .ob-options-area,
+  .ob-screen[data-step="2"] .ob-options-time,
+  .ob-screen[data-step="2"] .ob-options-start,
+  .ob-screen[data-step="3"] .ob-options-mood {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    width: 100%;
+    margin-bottom: 18px;
+  }
+
+  .ob-screen[data-step="1"] .ob-options-area .ob-option:not([data-internal-value="near_me"]),
+  .ob-screen[data-step="2"] .ob-options-time .ob-option {
+    min-height: 154px;
+    padding: 0 10px 12px;
+    border-radius: 12px;
+  }
+
+  .ob-screen[data-step="1"] .ob-options-area .ob-option:not([data-internal-value="near_me"]) .ob-option-label,
+  .ob-screen[data-step="2"] .ob-options-time .ob-option .ob-option-label {
+    max-width: 9ch;
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .ob-screen[data-step="1"] .ob-options-area .ob-option:not([data-internal-value="near_me"]) .ob-option-sub,
+  .ob-screen[data-step="2"] .ob-options-time .ob-option .ob-option-sub {
+    max-width: 17ch;
+    margin-top: 5px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .ob-screen[data-step="1"] .ob-options-area .ob-option[data-internal-value="near_me"] {
+    grid-column: auto;
+    min-height: 126px;
+    padding: 52px 10px 10px;
+    border-radius: 12px;
+  }
+
+  .ob-screen[data-step="1"] .ob-options-area .ob-option[data-internal-value="near_me"]::before {
+    inset: 10px 10px auto;
+    height: 34px;
+  }
+
+  .ob-screen[data-step="1"] .ob-options-area .ob-option[data-internal-value="near_me"] .ob-emoji {
+    top: 14px;
+    left: 14px;
+    width: 24px;
+    height: 24px;
+    font-size: 13px;
+  }
+
+  .ob-screen[data-step="1"] .ob-options-area .ob-option[data-internal-value="near_me"] .ob-option-label {
+    font-size: 16px;
+  }
+
+  .ob-screen[data-step="1"] .ob-options-area .ob-option[data-internal-value="near_me"] .ob-option-sub {
+    margin-top: 5px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .ob-screen[data-step="1"] .ob-options-area .ob-context-field {
+    grid-column: auto;
+    min-height: 126px;
+    padding: 11px;
+    border-radius: 12px;
+  }
+
+  .ob-screen[data-step="1"] .ob-context-label {
+    margin-bottom: 6px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .ob-screen[data-step="1"] .ob-context-field input {
+    min-height: 36px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+
+  .ob-screen[data-step="1"] .ob-context-hint {
+    margin-top: 5px;
+    font-size: 9.5px;
+    line-height: 1.2;
+  }
+
+  .ob-screen[data-step="2"] .ob-options-time {
+    margin-bottom: 16px;
+  }
+
+  .ob-screen[data-step="2"] .ob-options-start .ob-option {
+    min-height: 112px;
+    padding: 12px 10px;
+    border-radius: 12px;
+  }
+
+  .ob-screen[data-step="2"] .ob-options-start .ob-emoji {
+    width: 34px;
+    height: 34px;
+    margin-bottom: 8px;
+    font-size: 20px;
+  }
+
+  .ob-screen[data-step="2"] .ob-options-start .ob-option-label {
+    font-size: 14px;
+  }
+
+  .ob-screen[data-step="2"] .ob-options-start .ob-option-sub {
+    font-size: 10px;
+    line-height: 1.25;
+  }
+
+  .ob-custom-time {
+    margin-top: 10px;
+    padding: 12px;
+  }
+
+  .ob-custom-time select {
+    min-height: 42px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+
+  .ob-screen[data-step="3"] .ob-options-mood {
+    gap: 32px 10px;
+    margin-top: 36px;
+    padding: 0;
+  }
+
+  .ob-screen[data-step="3"] .ob-options-mood .ob-option {
+    min-height: 172px;
+    padding: 86px 8px 12px;
+    border-radius: 8px 8px 16px 16px;
+  }
+
+  .ob-screen[data-step="3"] .ob-options-mood .ob-option::before {
+    top: -24px;
+    left: 8px;
+    width: 52%;
+    height: 94px;
+  }
+
+  .ob-screen[data-step="3"] .ob-options-mood .ob-option::after {
+    top: -18px;
+    right: 8px;
+    width: 52%;
+    height: 92px;
+  }
+
+  .ob-screen[data-step="3"] .ob-options-mood .ob-option .ob-emoji {
+    top: -28px;
+    width: 48%;
+    height: 98px;
+  }
+
+  .ob-screen[data-step="3"] .ob-options-mood .ob-option .ob-option-label {
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .ob-screen[data-step="3"] .ob-options-mood .ob-option .ob-option-sub {
+    margin-top: 6px;
+    font-size: 9.5px;
+    line-height: 1.2;
+  }
+
+  .ob-actions {
+    gap: 10px;
+    margin-top: 16px;
+  }
+}
+
+@media (max-width: 380px) {
+  .ob-screen[data-step="1"] .ob-context-hint {
+    display: none;
+  }
+
+  .ob-screen[data-step="1"] .ob-options-area .ob-option:not([data-internal-value="near_me"]),
+  .ob-screen[data-step="2"] .ob-options-time .ob-option {
+    min-height: 146px;
+  }
+
+  .ob-screen[data-step="3"] .ob-options-mood .ob-option {
+    min-height: 164px;
+    padding-top: 82px;
+  }
+}
+
+/* =================================================================
    Targeted UI polish: Near me selected state and provider switch
    ================================================================= */
 
@@ -6927,6 +7143,11 @@ body {
   gap: 14px;
 }
 
+.builder:not(.collapsed) {
+  max-height: 560px;
+  padding-bottom: 24px;
+}
+
 .builder.collapsed {
   margin-top: 0;
 }
@@ -7079,6 +7300,11 @@ body {
   .builder {
     padding: 14px;
   }
+
+  .builder:not(.collapsed) {
+    max-height: 620px;
+    padding-bottom: 20px;
+  }
 }
 
 @media (max-width: 720px) {
@@ -7091,6 +7317,13 @@ body {
     gap: 10px;
     padding: 10px;
     border-radius: 14px;
+  }
+
+  .builder:not(.collapsed) {
+    max-height: min(720px, calc(100vh - 96px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-bottom: 18px;
   }
 
   .builder-row-label {
