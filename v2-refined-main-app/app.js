@@ -3296,6 +3296,7 @@ function syncCustomStartTimeFromBuilder() {
 }
 
 builderCustomStartTimeInput?.addEventListener('input', syncCustomStartTimeFromBuilder);
+builderCustomStartTimeInput?.addEventListener('change', syncCustomStartTimeFromBuilder);
 
 // ========== Chip selection ==========
 document.querySelectorAll('[data-group]').forEach(row => {
@@ -5893,10 +5894,12 @@ const onboarding = {
     });
 
     if (this.customStartTimeInput) {
-      this.customStartTimeInput.addEventListener('input', () => {
+      const syncCustomStartTime = () => {
         this.selections.customStartTime = getCustomStartTimeValue(this.customStartTimeInput.value);
         this.updateNextEnabled();
-      });
+      };
+      this.customStartTimeInput.addEventListener('input', syncCustomStartTime);
+      this.customStartTimeInput.addEventListener('change', syncCustomStartTime);
     }
 
     // Optional Step 4: itinerary shape cards

@@ -6556,6 +6556,356 @@ body {
 }
 
 /* =================================================================
+   Targeted UI fixes: custom time, Gangnam photo, mood folders, depth
+   ================================================================= */
+:root {
+  --ks-v2-hard-shadow: 5px 5px 0 var(--ks-v2-rule);
+  --ks-v2-shadow: 4px 4px 0 var(--ks-v2-rule);
+  --ks-v2-shadow-sm: 2px 2px 0 var(--ks-v2-rule);
+  --ks-v2-sans: var(--ks-sans, "Space Grotesk", "Helvetica Neue", Arial, sans-serif);
+  --ks-v2-serif: var(--ks-serif, "Instrument Serif", Georgia, serif);
+  --ks-v2-mono: var(--ks-mono, "JetBrains Mono", Consolas, monospace);
+}
+
+.ob-header,
+.brand-tag,
+.ks-flow,
+.route-summary-bar,
+.builder,
+.why-card,
+.ks-confidence,
+.timeline-section,
+.ks-import,
+.refine-section,
+.stop,
+.map-card,
+.map-provider-card,
+.ask-panel,
+.early-access-modal,
+.ob-option,
+.ob-context-field,
+.ob-custom-time,
+.ob-refine-anchor,
+.ob-back,
+.ob-next,
+.ob-skip,
+.ob-customize-more,
+.build-btn,
+.ghost-btn,
+.early-access-btn,
+.act-btn,
+.refine-chip,
+.ks-import-opt,
+.ask-suggest,
+.ask-send,
+.early-access-submit,
+.early-access-done {
+  box-shadow: var(--ks-v2-shadow-sm);
+}
+
+.ob-stage,
+.ks-hero,
+.app,
+.map-shell {
+  box-shadow: var(--ks-v2-hard-shadow);
+}
+
+.ob-option:hover,
+.ob-next:hover:not(:disabled),
+.ob-back:hover:not(:disabled),
+.act-btn.primary,
+.build-btn:hover,
+.early-access-submit:hover {
+  box-shadow: var(--ks-v2-shadow);
+}
+
+.ob-option.selected,
+.ob-shape.selected,
+.stop.active {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--ks-v2-hard-shadow);
+}
+
+.ob-custom-time select,
+.builder-custom-time {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 42px 11px 14px;
+  border: 2px solid var(--ks-v2-rule);
+  border-radius: 999px;
+  background-color: var(--ks-v2-paper);
+  color: var(--ks-v2-ink);
+  font: 700 14px/1.2 var(--ks-v2-sans);
+  cursor: pointer;
+}
+
+.ob-custom-time select:focus,
+.builder-custom-time:focus {
+  border-color: var(--ks-v2-yellow);
+  outline: 3px solid rgba(255, 210, 61, 0.42);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] {
+  min-height: 292px;
+  padding: 0 20px 22px;
+  align-items: flex-start;
+  justify-content: flex-end;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--ks-v2-ink);
+  color: var(--ks-v2-paper);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.48);
+}
+
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"]::before {
+  inset: 0;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.18) 45%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/area-gangnam.jpg");
+  background-position: center;
+  background-size: cover;
+  filter: saturate(1.05) contrast(1.04);
+  transform: none;
+}
+
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-emoji {
+  display: none;
+}
+
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-option-label {
+  max-width: 11ch;
+  color: var(--ks-v2-paper);
+  font-size: 29px;
+  line-height: 0.98;
+}
+
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-option-sub {
+  max-width: 24ch;
+  margin-top: 9px;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: var(--ks-v2-mono);
+  font-size: 12px;
+  opacity: 1;
+}
+
+.ob-options-time .ob-option.selected,
+.ob-options-start .ob-option.selected {
+  border-color: var(--ks-v2-yellow);
+  outline: 3px solid var(--ks-v2-yellow);
+  outline-offset: -8px;
+  background: var(--ks-v2-yellow);
+  color: var(--ks-v2-ink);
+  box-shadow: var(--ks-v2-hard-shadow), 0 0 0 4px rgba(255, 210, 61, 0.28);
+}
+
+.ob-options-time .ob-option.selected .ob-option-label {
+  color: var(--ks-v2-yellow);
+  text-shadow:
+    0 0 3px rgba(14, 14, 12, 0.85),
+    0 0 10px rgba(255, 210, 61, 0.82),
+    0 3px 12px rgba(0, 0, 0, 0.58);
+}
+
+.ob-options-start .ob-option.selected .ob-option-label,
+.ob-options-start .ob-option.selected .ob-option-sub {
+  color: var(--ks-v2-ink);
+  text-shadow: none;
+}
+
+.ob-options-time .ob-option.selected::after,
+.ob-options-start .ob-option.selected::after {
+  background: var(--ks-v2-yellow);
+  color: var(--ks-v2-ink);
+  box-shadow: var(--ks-v2-shadow-sm);
+}
+
+.ob-options-mood .ob-option[data-internal-value="local_food"] {
+  --mood-photo-1: url("/v2-refined-main-app/assets/design-v2/mood-food-1.jpg");
+  --mood-photo-2: url("/v2-refined-main-app/assets/design-v2/mood-food-2.jpg");
+  --mood-photo-3: url("/v2-refined-main-app/assets/design-v2/mood-food-3.jpg");
+}
+
+.ob-options-mood .ob-option[data-internal-value="cafes_dessert"] {
+  --mood-photo-1: url("/v2-refined-main-app/assets/design-v2/mood-cafe-1.jpg");
+  --mood-photo-2: url("/v2-refined-main-app/assets/design-v2/mood-cafe-2.jpg");
+  --mood-photo-3: url("/v2-refined-main-app/assets/design-v2/landing-meal.jpg");
+}
+
+.ob-options-mood .ob-option[data-internal-value="drinks_night"] {
+  --mood-photo-1: url("/v2-refined-main-app/assets/design-v2/mood-drinks-1.jpg");
+  --mood-photo-2: url("/v2-refined-main-app/assets/design-v2/mood-drinks-2.jpg");
+  --mood-photo-3: url("/v2-refined-main-app/assets/design-v2/mood-drinks-3.jpg");
+}
+
+.ob-options-mood .ob-option[data-internal-value="shop_browse"] {
+  --mood-photo-1: url("/v2-refined-main-app/assets/design-v2/mood-shop-1.jpg");
+  --mood-photo-2: url("/v2-refined-main-app/assets/design-v2/mood-shop-2.jpg");
+  --mood-photo-3: url("/v2-refined-main-app/assets/design-v2/mood-shop-3.jpg");
+}
+
+.ob-options-mood .ob-option[data-internal-value="culture_activities"] {
+  --mood-photo-1: url("/v2-refined-main-app/assets/design-v2/mood-culture-1.jpg");
+  --mood-photo-2: url("/v2-refined-main-app/assets/design-v2/mood-culture-2.jpg");
+  --mood-photo-3: url("/v2-refined-main-app/assets/design-v2/mood-culture-3.jpg");
+}
+
+.ob-options-mood .ob-option[data-internal-value="walks_views"] {
+  --mood-photo-1: url("/v2-refined-main-app/assets/design-v2/mood-walks-1.jpg");
+  --mood-photo-2: url("/v2-refined-main-app/assets/design-v2/mood-walks-2.jpg");
+  --mood-photo-3: url("/v2-refined-main-app/assets/design-v2/landing-walk.jpg");
+}
+
+.ob-options-mood {
+  gap: 58px 30px;
+}
+
+.ob-options-mood .ob-option {
+  min-height: 254px;
+  padding: 156px 18px 22px;
+  overflow: visible;
+}
+
+.ob-options-mood .ob-option::before,
+.ob-options-mood .ob-option::after,
+.ob-options-mood .ob-option .ob-emoji {
+  position: absolute;
+  display: block;
+  border: 2px solid var(--ks-v2-rule);
+  border-radius: 8px;
+  background-position: center;
+  background-size: cover;
+  box-shadow: var(--ks-v2-shadow-sm);
+  pointer-events: none;
+}
+
+.ob-options-mood .ob-option::before,
+.ob-options-mood .ob-option::after {
+  content: "";
+}
+
+.ob-options-mood .ob-option::before {
+  top: -40px;
+  left: 18px;
+  right: auto;
+  width: 52%;
+  height: 142px;
+  background-image: linear-gradient(rgba(14, 14, 12, 0.02), rgba(14, 14, 12, 0.12)), var(--mood-photo-1);
+  transform: rotate(-5deg);
+  z-index: 1;
+}
+
+.ob-options-mood .ob-option::after {
+  top: -28px;
+  right: 18px;
+  left: auto;
+  width: 52%;
+  height: 138px;
+  background-image: linear-gradient(rgba(14, 14, 12, 0.02), rgba(14, 14, 12, 0.12)), var(--mood-photo-2);
+  transform: rotate(4deg);
+  z-index: 2;
+}
+
+.ob-options-mood .ob-option .ob-emoji {
+  top: -48px;
+  left: 50%;
+  width: 48%;
+  height: 150px;
+  font-size: 0;
+  color: transparent;
+  background-image: linear-gradient(rgba(14, 14, 12, 0.02), rgba(14, 14, 12, 0.1)), var(--mood-photo-3);
+  transform: translateX(-50%) rotate(-1deg);
+  z-index: 3;
+}
+
+.ob-options-mood .ob-option.selected {
+  border-color: var(--ks-v2-yellow);
+  outline: 3px solid var(--ks-v2-yellow);
+  outline-offset: -7px;
+  background: var(--ks-v2-yellow);
+  box-shadow: var(--ks-v2-hard-shadow);
+}
+
+.ks-conf-item {
+  padding: 7px 11px 7px 14px;
+}
+
+.ks-conf-check {
+  transform: translateX(2px);
+}
+
+.timeline-section .section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 22px 12px 18px;
+}
+
+.timeline-section .section-head h3 {
+  margin-left: 4px;
+}
+
+.timeline-section .section-sub {
+  margin-right: 8px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+@media (max-width: 1120px) {
+  .ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] {
+    min-height: 260px;
+  }
+}
+
+@media (max-width: 720px) {
+  .ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] {
+    min-height: 220px;
+    padding: 0 16px 18px;
+  }
+
+  .ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-option-label {
+    font-size: 25px;
+  }
+
+  .ob-options-mood {
+    gap: 48px;
+  }
+
+  .ob-options-mood .ob-option {
+    min-height: 230px;
+    padding-top: 138px;
+  }
+
+  .ob-options-mood .ob-option::before,
+  .ob-options-mood .ob-option::after {
+    height: 122px;
+  }
+
+  .ob-options-mood .ob-option .ob-emoji {
+    height: 130px;
+  }
+
+  .timeline-section .section-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .timeline-section .section-head h3,
+  .timeline-section .section-sub {
+    margin-right: 0;
+    margin-left: 0;
+    text-align: left;
+    white-space: normal;
+  }
+}
+
+/* =================================================================
    Design v2 photo-dominant onboarding refinement
    Poster-style area/time cards and folder-like mood cards.
    ================================================================= */
