@@ -343,8 +343,8 @@
   .ks-hero-right {
     position: relative;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1.1fr 0.9fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(230px, 1fr));
     gap: 18px;
     padding: 42px 42px 80px 18px;
     border-left: var(--ks-line);
@@ -357,7 +357,8 @@
 
   .ks-hero-tile {
     position: relative;
-    min-height: 210px;
+    margin: 0;
+    min-height: 230px;
     border: var(--ks-line);
     border-radius: 10px;
     background: var(--ks-paper);
@@ -366,7 +367,6 @@
   }
 
   .ks-tile-1 {
-    grid-row: span 2;
     transform: rotate(-1.5deg);
   }
 
@@ -379,8 +379,6 @@
   }
 
   .ks-tile-4 {
-    grid-column: 1 / -1;
-    min-height: 150px;
     transform: rotate(1deg);
   }
 
@@ -499,7 +497,8 @@
     }
 
     .ks-hero-right {
-      grid-template-rows: 220px 180px 150px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(2, 220px);
       padding: 24px 28px 82px;
       border-top: var(--ks-line);
       border-left: 0;

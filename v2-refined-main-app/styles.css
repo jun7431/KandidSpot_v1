@@ -6185,3 +6185,289 @@ body {
     display: grid;
   }
 }
+
+/* =================================================================
+   Design v2 photo-dominant onboarding refinement
+   Poster-style area/time cards and folder-like mood cards.
+   ================================================================= */
+.ks-hero-collage {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(148px, 1fr));
+  gap: 14px;
+  min-height: 326px;
+  transform: rotate(0.5deg);
+}
+
+.ks-hero-photo-main {
+  grid-row: auto;
+}
+
+.ks-hero-photo {
+  min-height: 148px;
+}
+
+.ks-hero-photo-accent {
+  transform: rotate(-1.5deg);
+}
+
+.ob-options-area .ob-option[data-internal-value="myeongdong_euljiro"],
+.ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"],
+.ob-options-area .ob-option[data-internal-value="itaewon_hannam"],
+.ob-options-area .ob-option[data-internal-value="anguk_bukchon"],
+.ob-options-area .ob-option[data-internal-value="seongsu"],
+.ob-options-time .ob-option {
+  min-height: 292px;
+  padding: 0 20px 22px;
+  align-items: flex-start;
+  justify-content: flex-end;
+  color: var(--ks-v2-paper);
+  background: var(--ks-v2-ink);
+  border-radius: 14px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.48);
+}
+
+.ob-options-area .ob-option[data-internal-value="myeongdong_euljiro"]::before,
+.ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"]::before,
+.ob-options-area .ob-option[data-internal-value="itaewon_hannam"]::before,
+.ob-options-area .ob-option[data-internal-value="anguk_bukchon"]::before,
+.ob-options-area .ob-option[data-internal-value="seongsu"]::before,
+.ob-options-time .ob-option::before {
+  inset: 0;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  transform: none;
+  filter: saturate(1.05) contrast(1.04);
+}
+
+.ob-options-area .ob-option[data-internal-value="myeongdong_euljiro"]::before {
+  background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.18) 45%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/area-myeongdong.jpg");
+}
+
+.ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"]::before {
+  background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.18) 45%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/area-hongdae.jpg");
+}
+
+.ob-options-area .ob-option[data-internal-value="itaewon_hannam"]::before {
+  background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.18) 45%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/area-itaewon.jpg");
+}
+
+.ob-options-area .ob-option[data-internal-value="anguk_bukchon"]::before {
+  background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.18) 45%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/area-bukchon.jpg");
+}
+
+.ob-options-area .ob-option[data-internal-value="seongsu"]::before {
+  background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.18) 45%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/area-seongsu.jpg");
+}
+
+.ob-option[data-internal-value="time_30_60"]::before {
+  background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.16) 42%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/time-1.jpg");
+}
+
+.ob-option[data-internal-value="time_1_2"]::before {
+  background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.16) 42%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/time-2.jpg");
+}
+
+.ob-option[data-internal-value="time_2_3"]::before {
+  background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.16) 42%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/time-3.jpg");
+}
+
+.ob-option[data-internal-value="time_4_6"]::before {
+  background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.16) 42%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/time-4.jpg");
+}
+
+.ob-options-area .ob-option[data-internal-value="myeongdong_euljiro"] .ob-option-label,
+.ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"] .ob-option-label,
+.ob-options-area .ob-option[data-internal-value="itaewon_hannam"] .ob-option-label,
+.ob-options-area .ob-option[data-internal-value="anguk_bukchon"] .ob-option-label,
+.ob-options-area .ob-option[data-internal-value="seongsu"] .ob-option-label,
+.ob-options-time .ob-option .ob-option-label {
+  max-width: 11ch;
+  color: var(--ks-v2-paper);
+  font-size: 29px;
+  line-height: 0.98;
+}
+
+.ob-options-area .ob-option[data-internal-value="myeongdong_euljiro"] .ob-option-sub,
+.ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"] .ob-option-sub,
+.ob-options-area .ob-option[data-internal-value="itaewon_hannam"] .ob-option-sub,
+.ob-options-area .ob-option[data-internal-value="anguk_bukchon"] .ob-option-sub,
+.ob-options-area .ob-option[data-internal-value="seongsu"] .ob-option-sub,
+.ob-options-time .ob-option .ob-option-sub {
+  max-width: 24ch;
+  margin-top: 9px;
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 1;
+  font-family: var(--ks-v2-mono);
+  font-size: 12px;
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"] {
+  min-height: 230px;
+  padding: 96px 18px 18px;
+  background: var(--ks-v2-green-soft);
+  color: var(--ks-v2-ink);
+  text-shadow: none;
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"]::before {
+  inset: 12px 12px auto;
+  height: 72px;
+  border: var(--ks-v2-line);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 24% 30%, rgba(27, 63, 224, 0.28) 0 12px, transparent 13px),
+    radial-gradient(circle at 76% 62%, rgba(255, 59, 134, 0.24) 0 10px, transparent 11px),
+    repeating-linear-gradient(45deg, rgba(14, 14, 12, 0.08) 0 7px, transparent 7px 15px),
+    linear-gradient(135deg, #D8F6E4, #FFFDF7);
+}
+
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] {
+  min-height: 230px;
+  padding: 96px 18px 18px;
+  color: var(--ks-v2-ink);
+  text-shadow: none;
+}
+
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"]::before {
+  inset: 12px 12px auto;
+  height: 72px;
+  border: var(--ks-v2-line);
+  border-radius: 8px;
+}
+
+.ob-options-mood {
+  gap: 52px 30px;
+  margin-top: 72px;
+  padding: 0 8px;
+}
+
+.ob-options-mood .ob-option {
+  min-height: 238px;
+  padding: 122px 18px 20px;
+  overflow: visible;
+  border-radius: 8px 8px 20px 20px;
+  background: var(--ks-v2-soft-paper);
+  color: var(--ks-v2-ink);
+  text-align: center;
+  text-shadow: none;
+}
+
+.ob-options-mood .ob-option::before {
+  top: -42px;
+  right: 18px;
+  left: 18px;
+  height: 152px;
+  border: var(--ks-v2-line);
+  border-radius: 7px;
+  box-shadow: 0 12px 20px rgba(14, 14, 12, 0.22);
+  transform: rotate(-2deg);
+}
+
+.ob-options-mood .ob-option:nth-child(2n)::before {
+  transform: rotate(2.5deg);
+}
+
+.ob-options-mood .ob-option:nth-child(3n)::before {
+  transform: rotate(-1deg);
+}
+
+.ob-options-mood .ob-option .ob-option-label {
+  color: var(--ks-v2-ink);
+  font-family: var(--ks-v2-serif);
+  font-size: 29px;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.ob-options-mood .ob-option .ob-option-sub {
+  max-width: none;
+  margin-top: 10px;
+  color: var(--ks-v2-ink-soft);
+  font-family: var(--ks-v2-mono);
+  font-size: 11px;
+  opacity: 1;
+}
+
+.ob-options-mood .ob-option.selected {
+  background: var(--ks-v2-yellow);
+  color: var(--ks-v2-ink);
+}
+
+.ob-options-mood .ob-option.selected .ob-option-label,
+.ob-options-mood .ob-option.selected .ob-option-sub {
+  color: var(--ks-v2-ink);
+}
+
+.ob-options-start .ob-option {
+  text-shadow: none;
+}
+
+@media (max-width: 1120px) {
+  .ks-hero-collage {
+    grid-template-rows: repeat(2, minmax(132px, 1fr));
+    min-height: 288px;
+  }
+
+  .ob-options-area .ob-option[data-internal-value="myeongdong_euljiro"],
+  .ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"],
+  .ob-options-area .ob-option[data-internal-value="itaewon_hannam"],
+  .ob-options-area .ob-option[data-internal-value="anguk_bukchon"],
+  .ob-options-area .ob-option[data-internal-value="seongsu"],
+  .ob-options-time .ob-option {
+    min-height: 260px;
+  }
+}
+
+@media (max-width: 720px) {
+  .ks-hero-collage {
+    grid-template-rows: repeat(2, minmax(118px, 1fr));
+    min-height: 248px;
+    transform: none;
+  }
+
+  .ks-hero-photo {
+    min-height: 118px;
+  }
+
+  .ob-options-area .ob-option[data-internal-value="myeongdong_euljiro"],
+  .ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"],
+  .ob-options-area .ob-option[data-internal-value="itaewon_hannam"],
+  .ob-options-area .ob-option[data-internal-value="anguk_bukchon"],
+  .ob-options-area .ob-option[data-internal-value="seongsu"],
+  .ob-options-time .ob-option {
+    min-height: 220px;
+    padding: 0 16px 18px;
+  }
+
+  .ob-options-area .ob-option[data-internal-value="myeongdong_euljiro"] .ob-option-label,
+  .ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"] .ob-option-label,
+  .ob-options-area .ob-option[data-internal-value="itaewon_hannam"] .ob-option-label,
+  .ob-options-area .ob-option[data-internal-value="anguk_bukchon"] .ob-option-label,
+  .ob-options-area .ob-option[data-internal-value="seongsu"] .ob-option-label,
+  .ob-options-time .ob-option .ob-option-label {
+    font-size: 25px;
+  }
+
+  .ob-options-mood {
+    gap: 44px;
+    margin-top: 58px;
+  }
+
+  .ob-options-mood .ob-option {
+    min-height: 214px;
+    padding-top: 112px;
+  }
+
+  .ob-options-mood .ob-option::before {
+    top: -34px;
+    height: 134px;
+  }
+
+  .ob-options-area .ob-option[data-internal-value="near_me"],
+  .ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] {
+    min-height: 166px;
+    padding: 88px 14px 14px;
+  }
+}
