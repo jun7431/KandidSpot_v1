@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kandid Spot — fixed local preview</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap"
+  />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body style="background-color: rgb(240, 240, 240)">
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+  <script type="text/babel">
+
+// tweaks-panel.jsx
+// Reusable Tweaks shell + form-control helpers.
+//
+// Owns the host protocol (listens for __activate_edit_mode / __deactivate_edit_mode,
+// posts __edit_mode_available / __edit_mode_set_keys / __edit_mode_dismissed) so
+// individual prototypes don't re-roll it. Ships a consistent set of controls so you
+// don't hand-draw <input type="range">, segmented radios, steppers, etc.
+//
+// Usage (in an HTML file that loads React + Babel):
+//
+//   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+//     "primaryColor": "#D97757",
+//     "palette": ["#D97757", "#29261b", "#f6f4ef"],
+//     "fontSize": 16,
+//     "density": "regular",
+//     "dark": false
+//   }/*EDITMODE-END*/;
+//
+//   function App() {
+//     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+//     return (
+//       <div style={{ fontSize: t.fontSize, color: t.primaryColor }}>
+//         Hello
+//         <TweaksPanel>
+//           <TweakSection label="Typography" />
+//           <TweakSlider label="Font size" value={t.fontSize} min={10} max={32} unit="px"
+//                        onChange={(v) => setTweak('fontSize', v)} />
+//           <TweakRadio  label="Density" value={t.density}
+//                        options={['compact', 'regular', 'comfy']}
+//                        onChange={(v) => setTweak('density', v)} />
+//           <TweakSection label="Theme" />
+//           <TweakColor  label="Primary" value={t.primaryColor}
+//                        options={['#D97757', '#2A6FDB', '#1F8A5B', '#7A5AE0']}
+//                        onChange={(v) => setTweak('primaryColor', v)} />
+//           <TweakColor  label="Palette" value={t.palette}
+//                        options={[['#D97757', '#29261b', '#f6f4ef'],
+//                                  ['#475569', '#0f172a', '#f1f5f9']]}
+//                        onChange={(v) => setTweak('palette', v)} />
+//           <TweakToggle label="Dark mode" value={t.dark}
+//                        onChange={(v) => setTweak('dark', v)} />
+//         </TweaksPanel>
+//       </div>
+//     );
+//   }
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+const __TWEAKS_STYLE = `
+  .twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
+    max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+    transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
+    background:rgba(250,249,247,.78);color:#29261b;
+    -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+    border:.5px solid rgba(255,255,255,.6);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
+    font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+  .twk-hd{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 8px 10px 14px;cursor:move;user-select:none}
+  .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
+    width:22px;height:22px;border-radius:6px;cursor:default;font-size:13px;line-height:1}
+  .twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
+  .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
+    overflow-y:auto;overflow-x:hidden;min-height:0;
+    scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
+  .twk-body::-webkit-scrollbar{width:8px}
+  .twk-body::-webkit-scrollbar-track{background:transparent;margin:2px}
+  .twk-body::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:4px;
+    border:2px solid transparent;background-clip:content-box}
+  .twk-body::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.25);
+    border:2px solid transparent;background-clip:content-box}
+  .twk-row{display:flex;flex-direction:column;gap:5px}
+  .twk-row-h{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+  .twk-lbl{display:flex;justify-content:space-between;align-items:baseline;
+    color:rgba(41,38,27,.72)}
+  .twk-lbl>span:first-child{font-weight:500}
+  .twk-val{color:rgba(41,38,27,.5);font-variant-numeric:tabular-nums}
+
+  .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    color:rgba(41,38,27,.45);padding:10px 0 0}
+  .twk-sect:first-child{padding-top:0}
+
+  .twk-field{appearance:none;box-sizing:border-box;width:100%;min-width:0;height:26px;padding:0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;
+    background:rgba(255,255,255,.6);color:inherit;font:inherit;outline:none}
+  .twk-field:focus{border-color:rgba(0,0,0,.25);background:rgba(255,255,255,.85)}
+  select.twk-field{padding-right:22px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='rgba(0,0,0,.5)' d='M0 0h10L5 6z'/></svg>");
+    background-repeat:no-repeat;background-position:right 8px center}
+
+  .twk-slider{appearance:none;-webkit-appearance:none;width:100%;height:4px;margin:6px 0;
+    border-radius:999px;background:rgba(0,0,0,.12);outline:none}
+  .twk-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:14px;height:14px;border-radius:50%;background:#fff;
+    border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+  .twk-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+    background:#fff;border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+
+  .twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
+    background:rgba(0,0,0,.06);user-select:none}
+  .twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
+    background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
+    transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
+  .twk-seg.dragging .twk-seg-thumb{transition:none}
+  .twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
+    background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
+    border-radius:6px;cursor:default;padding:4px 6px;line-height:1.2;
+    overflow-wrap:anywhere}
+
+  .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
+    background:rgba(0,0,0,.15);transition:background .15s;cursor:default;padding:0}
+  .twk-toggle[data-on="1"]{background:#34c759}
+  .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+  .twk-toggle[data-on="1"] i{transform:translateX(14px)}
+
+  .twk-num{display:flex;align-items:center;box-sizing:border-box;min-width:0;height:26px;padding:0 0 0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;background:rgba(255,255,255,.6)}
+  .twk-num-lbl{font-weight:500;color:rgba(41,38,27,.6);cursor:ew-resize;
+    user-select:none;padding-right:8px}
+  .twk-num input{flex:1;min-width:0;height:100%;border:0;background:transparent;
+    font:inherit;font-variant-numeric:tabular-nums;text-align:right;padding:0 8px 0 0;
+    outline:none;color:inherit;-moz-appearance:textfield}
+  .twk-num input::-webkit-inner-spin-button,.twk-num input::-webkit-outer-spin-button{
+    -webkit-appearance:none;margin:0}
+  .twk-num-unit{padding-right:8px;color:rgba(41,38,27,.45)}
+
+  .twk-btn{appearance:none;height:26px;padding:0 12px;border:0;border-radius:7px;
+    background:rgba(0,0,0,.78);color:#fff;font:inherit;font-weight:500;cursor:default}
+  .twk-btn:hover{background:rgba(0,0,0,.88)}
+  .twk-btn.secondary{background:rgba(0,0,0,.06);color:inherit}
+  .twk-btn.secondary:hover{background:rgba(0,0,0,.1)}
+
+  .twk-swatch{appearance:none;-webkit-appearance:none;width:56px;height:22px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:6px;padding:0;cursor:default;
+    background:transparent;flex-shrink:0}
+  .twk-swatch::-webkit-color-swatch-wrapper{padding:0}
+  .twk-swatch::-webkit-color-swatch{border:0;border-radius:5.5px}
+  .twk-swatch::-moz-color-swatch{border:0;border-radius:5.5px}
+
+  .twk-chips{display:flex;gap:6px}
+  .twk-chip{position:relative;appearance:none;flex:1;min-width:0;height:46px;
+    padding:0;border:0;border-radius:6px;overflow:hidden;cursor:default;
+    box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.06);
+    transition:transform .12s cubic-bezier(.3,.7,.4,1),box-shadow .12s}
+  .twk-chip:hover{transform:translateY(-1px);
+    box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 4px 10px rgba(0,0,0,.12)}
+  .twk-chip[data-on="1"]{box-shadow:0 0 0 1.5px rgba(0,0,0,.85),
+    0 2px 6px rgba(0,0,0,.15)}
+  .twk-chip>span{position:absolute;top:0;bottom:0;right:0;width:34%;
+    display:flex;flex-direction:column;box-shadow:-1px 0 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i{flex:1;box-shadow:0 -1px 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i:first-child{box-shadow:none}
+  .twk-chip svg{position:absolute;top:6px;left:6px;width:13px;height:13px;
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+`;
+
+// ── useTweaks ───────────────────────────────────────────────────────────────
+// Single source of truth for tweak values. setTweak persists via the host
+// (__edit_mode_set_keys → host rewrites the EDITMODE block on disk).
+function useTweaks(defaults) {
+  const [values, setValues] = React.useState(defaults);
+  // Accepts either setTweak('key', value) or setTweak({ key: value, ... }) so a
+  // useState-style call doesn't write a "[object Object]" key into the persisted
+  // JSON block.
+  const setTweak = React.useCallback((keyOrEdits, val) => {
+    const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
+      ? keyOrEdits : { [keyOrEdits]: val };
+    setValues((prev) => ({ ...prev, ...edits }));
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*');
+    // Same-window signal so in-page listeners (deck-stage rail thumbnails)
+    // can react — the parent message only reaches the host, not peers.
+    window.dispatchEvent(new CustomEvent('tweakchange', { detail: edits }));
+  }, []);
+  return [values, setTweak];
+}
+
+// ── TweaksPanel ─────────────────────────────────────────────────────────────
+// Floating shell. Registers the protocol listener BEFORE announcing
+// availability — if the announce ran first, the host's activate could land
+// before our handler exists and the toolbar toggle would silently no-op.
+// The close button posts __edit_mode_dismissed so the host's toolbar toggle
+// flips off in lockstep; the host echoes __deactivate_edit_mode back which
+// is what actually hides the panel.
+function TweaksPanel({ title = 'Tweaks', noDeckControls = false, children }) {
+  const [open, setOpen] = React.useState(false);
+  const dragRef = React.useRef(null);
+  // Auto-inject a rail toggle when a <deck-stage> is on the page. The
+  // toggle drives the deck's per-viewer _railVisible via window message;
+  // state is mirrored from the same localStorage key the deck reads so
+  // the control reflects reality across reloads. The mechanism is the
+  // message — authors who want custom placement can post it directly
+  // and pass noDeckControls to suppress this one.
+  const hasDeckStage = React.useMemo(
+    () => typeof document !== 'undefined' && !!document.querySelector('deck-stage'),
+    [],
+  );
+  // deck-stage enables its rail in connectedCallback, but this panel can
+  // mount before that element has upgraded. The initial read catches the
+  // common case; the listener covers mounting first. (Older deck-stage.js
+  // copies still wait for the host's __omelette_rail_enabled postMessage —
+  // same listener handles those.)
+  const [railEnabled, setRailEnabled] = React.useState(
+    () => hasDeckStage && !!document.querySelector('deck-stage')?._railEnabled,
+  );
+  React.useEffect(() => {
+    if (!hasDeckStage || railEnabled) return undefined;
+    const onMsg = (e) => {
+      if (e.data && e.data.type === '__omelette_rail_enabled') setRailEnabled(true);
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [hasDeckStage, railEnabled]);
+  const [railVisible, setRailVisible] = React.useState(() => {
+    try { return localStorage.getItem('deck-stage.railVisible') !== '0'; } catch (e) { return true; }
+  });
+  const toggleRail = (on) => {
+    setRailVisible(on);
+    window.postMessage({ type: '__deck_rail_visible', on }, '*');
+  };
+  const offsetRef = React.useRef({ x: 16, y: 16 });
+  const PAD = 16;
+
+  const clampToViewport = React.useCallback(() => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const w = panel.offsetWidth, h = panel.offsetHeight;
+    const maxRight = Math.max(PAD, window.innerWidth - w - PAD);
+    const maxBottom = Math.max(PAD, window.innerHeight - h - PAD);
+    offsetRef.current = {
+      x: Math.min(maxRight, Math.max(PAD, offsetRef.current.x)),
+      y: Math.min(maxBottom, Math.max(PAD, offsetRef.current.y)),
+    };
+    panel.style.right = offsetRef.current.x + 'px';
+    panel.style.bottom = offsetRef.current.y + 'px';
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    clampToViewport();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', clampToViewport);
+      return () => window.removeEventListener('resize', clampToViewport);
+    }
+    const ro = new ResizeObserver(clampToViewport);
+    ro.observe(document.documentElement);
+    return () => ro.disconnect();
+  }, [open, clampToViewport]);
+
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      const t = e?.data?.type;
+      if (t === '__activate_edit_mode') setOpen(true);
+      else if (t === '__deactivate_edit_mode') setOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const dismiss = () => {
+    setOpen(false);
+    window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');
+  };
+
+  const onDragStart = (e) => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const r = panel.getBoundingClientRect();
+    const sx = e.clientX, sy = e.clientY;
+    const startRight = window.innerWidth - r.right;
+    const startBottom = window.innerHeight - r.bottom;
+    const move = (ev) => {
+      offsetRef.current = {
+        x: startRight - (ev.clientX - sx),
+        y: startBottom - (ev.clientY - sy),
+      };
+      clampToViewport();
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
+  if (!open) return null;
+  return (
+    <>
+      <style>{__TWEAKS_STYLE}</style>
+      <div ref={dragRef} className="twk-panel" data-noncommentable=""
+           style={{ right: offsetRef.current.x, bottom: offsetRef.current.y }}>
+        <div className="twk-hd" onMouseDown={onDragStart}>
+          <b>{title}</b>
+          <button className="twk-x" aria-label="Close tweaks"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={dismiss}>✕</button>
+        </div>
+        <div className="twk-body">
+          {children}
+          {hasDeckStage && railEnabled && !noDeckControls && (
+            <TweakSection label="Deck">
+              <TweakToggle label="Thumbnail rail" value={railVisible} onChange={toggleRail} />
+            </TweakSection>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Layout helpers ──────────────────────────────────────────────────────────
+
+function TweakSection({ label, children }) {
+  return (
+    <>
+      <div className="twk-sect">{label}</div>
+      {children}
+    </>
+  );
+}
+
+function TweakRow({ label, value, children, inline = false }) {
+  return (
+    <div className={inline ? 'twk-row twk-row-h' : 'twk-row'}>
+      <div className="twk-lbl">
+        <span>{label}</span>
+        {value != null && <span className="twk-val">{value}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ── Controls ────────────────────────────────────────────────────────────────
+
+function TweakSlider({ label, value, min = 0, max = 100, step = 1, unit = '', onChange }) {
+  return (
+    <TweakRow label={label} value={`${value}${unit}`}>
+      <input type="range" className="twk-slider" min={min} max={max} step={step}
+             value={value} onChange={(e) => onChange(Number(e.target.value))} />
+    </TweakRow>
+  );
+}
+
+function TweakToggle({ label, value, onChange }) {
+  return (
+    <div className="twk-row twk-row-h">
+      <div className="twk-lbl"><span>{label}</span></div>
+      <button type="button" className="twk-toggle" data-on={value ? '1' : '0'}
+              role="switch" aria-checked={!!value}
+              onClick={() => onChange(!value)}><i /></button>
+    </div>
+  );
+}
+
+function TweakRadio({ label, value, options, onChange }) {
+  const trackRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
+  // The active value is read by pointer-move handlers attached for the lifetime
+  // of a drag — ref it so a stale closure doesn't fire onChange for every move.
+  const valueRef = React.useRef(value);
+  valueRef.current = value;
+
+  // Segments wrap mid-word once per-segment width runs out. The track is
+  // ~248px (280 panel − 28 body pad − 4 seg pad), each button loses 12px
+  // to its own padding, and 11.5px system-ui averages ~6.3px/char — so 2
+  // options fit ~16 chars each, 3 fit ~10. Past that (or >3 options), fall
+  // back to a dropdown rather than wrap.
+  const labelLen = (o) => String(typeof o === 'object' ? o.label : o).length;
+  const maxLen = options.reduce((m, o) => Math.max(m, labelLen(o)), 0);
+  const fitsAsSegments = maxLen <= ({ 2: 16, 3: 10 }[options.length] ?? 0);
+  if (!fitsAsSegments) {
+    // <select> emits strings — map back to the original option value so the
+    // fallback stays type-preserving (numbers, booleans) like the segment path.
+    const resolve = (s) => {
+      const m = options.find((o) => String(typeof o === 'object' ? o.value : o) === s);
+      return m === undefined ? s : typeof m === 'object' ? m.value : m;
+    };
+    return <TweakSelect label={label} value={value} options={options}
+                        onChange={(s) => onChange(resolve(s))} />;
+  }
+  const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+  const idx = Math.max(0, opts.findIndex((o) => o.value === value));
+  const n = opts.length;
+
+  const segAt = (clientX) => {
+    const r = trackRef.current.getBoundingClientRect();
+    const inner = r.width - 4;
+    const i = Math.floor(((clientX - r.left - 2) / inner) * n);
+    return opts[Math.max(0, Math.min(n - 1, i))].value;
+  };
+
+  const onPointerDown = (e) => {
+    setDragging(true);
+    const v0 = segAt(e.clientX);
+    if (v0 !== valueRef.current) onChange(v0);
+    const move = (ev) => {
+      if (!trackRef.current) return;
+      const v = segAt(ev.clientX);
+      if (v !== valueRef.current) onChange(v);
+    };
+    const up = () => {
+      setDragging(false);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  return (
+    <TweakRow label={label}>
+      <div ref={trackRef} role="radiogroup" onPointerDown={onPointerDown}
+           className={dragging ? 'twk-seg dragging' : 'twk-seg'}>
+        <div className="twk-seg-thumb"
+             style={{ left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
+                      width: `calc((100% - 4px) / ${n})` }} />
+        {opts.map((o) => (
+          <button key={o.value} type="button" role="radio" aria-checked={o.value === value}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakSelect({ label, value, options, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <select className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => {
+          const v = typeof o === 'object' ? o.value : o;
+          const l = typeof o === 'object' ? o.label : o;
+          return <option key={v} value={v}>{l}</option>;
+        })}
+      </select>
+    </TweakRow>
+  );
+}
+
+function TweakText({ label, value, placeholder, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <input className="twk-field" type="text" value={value} placeholder={placeholder}
+             onChange={(e) => onChange(e.target.value)} />
+    </TweakRow>
+  );
+}
+
+function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) {
+  const clamp = (n) => {
+    if (min != null && n < min) return min;
+    if (max != null && n > max) return max;
+    return n;
+  };
+  const startRef = React.useRef({ x: 0, val: 0 });
+  const onScrubStart = (e) => {
+    e.preventDefault();
+    startRef.current = { x: e.clientX, val: value };
+    const decimals = (String(step).split('.')[1] || '').length;
+    const move = (ev) => {
+      const dx = ev.clientX - startRef.current.x;
+      const raw = startRef.current.val + dx * step;
+      const snapped = Math.round(raw / step) * step;
+      onChange(clamp(Number(snapped.toFixed(decimals))));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  return (
+    <div className="twk-num">
+      <span className="twk-num-lbl" onPointerDown={onScrubStart}>{label}</span>
+      <input type="number" value={value} min={min} max={max} step={step}
+             onChange={(e) => onChange(clamp(Number(e.target.value)))} />
+      {unit && <span className="twk-num-unit">{unit}</span>}
+    </div>
+  );
+}
+
+// Relative-luminance contrast pick — checkmarks drawn over a swatch need to
+// read on both #111 and #fafafa without per-option configuration. Hex input
+// only (#rgb / #rrggbb); named or rgb()/hsl() colors fall through to "light".
+function __twkIsLight(hex) {
+  const h = String(hex).replace('#', '');
+  const x = h.length === 3 ? h.replace(/./g, (c) => c + c) : h.padEnd(6, '0');
+  const n = parseInt(x.slice(0, 6), 16);
+  if (Number.isNaN(n)) return true;
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return r * 299 + g * 587 + b * 114 > 148000;
+}
+
+const __TwkCheck = ({ light }) => (
+  <svg viewBox="0 0 14 14" aria-hidden="true">
+    <path d="M3 7.2 5.8 10 11 4.2" fill="none" strokeWidth="2.2"
+          strokeLinecap="round" strokeLinejoin="round"
+          stroke={light ? 'rgba(0,0,0,.78)' : '#fff'} />
+  </svg>
+);
+
+// TweakColor — curated color/palette picker. Each option is either a single
+// hex string or an array of 1-5 hex strings; the card adapts — a lone color
+// renders solid, a palette renders colors[0] as the hero (left ~2/3) with the
+// rest stacked in a sharp column on the right. onChange emits the
+// option in the shape it was passed (string stays string, array stays array).
+// Without options it falls back to the native color input for back-compat.
+function TweakColor({ label, value, options, onChange }) {
+  if (!options || !options.length) {
+    return (
+      <div className="twk-row twk-row-h">
+        <div className="twk-lbl"><span>{label}</span></div>
+        <input type="color" className="twk-swatch" value={value}
+               onChange={(e) => onChange(e.target.value)} />
+      </div>
+    );
+  }
+  // Native <input type=color> emits lowercase hex per the HTML spec, so
+  // compare case-insensitively. String() guards JSON.stringify(undefined),
+  // which returns the primitive undefined (no .toLowerCase).
+  const key = (o) => String(JSON.stringify(o)).toLowerCase();
+  const cur = key(value);
+  return (
+    <TweakRow label={label}>
+      <div className="twk-chips" role="radiogroup">
+        {options.map((o, i) => {
+          const colors = Array.isArray(o) ? o : [o];
+          const [hero, ...rest] = colors;
+          const sup = rest.slice(0, 4);
+          const on = key(o) === cur;
+          return (
+            <button key={i} type="button" className="twk-chip" role="radio"
+                    aria-checked={on} data-on={on ? '1' : '0'}
+                    aria-label={colors.join(', ')} title={colors.join(' · ')}
+                    style={{ background: hero }}
+                    onClick={() => onChange(o)}>
+              {sup.length > 0 && (
+                <span>
+                  {sup.map((c, j) => <i key={j} style={{ background: c }} />)}
+                </span>
+              )}
+              {on && <__TwkCheck light={__twkIsLight(hero)} />}
+            </button>
+          );
+        })}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakButton({ label, onClick, secondary = false }) {
+  return (
+    <button type="button" className={secondary ? 'twk-btn secondary' : 'twk-btn'}
+            onClick={onClick}>{label}</button>
+  );
+}
+
+Object.assign(window, {
+  useTweaks, TweaksPanel, TweakSection, TweakRow,
+  TweakSlider, TweakToggle, TweakRadio, TweakSelect,
+  TweakText, TweakNumber, TweakColor, TweakButton,
+});
+
+  </script>
+  <script type="text/babel">
+/* global React */
+
+/* =========================================================
+   DECORATIONS — stars, hearts, sparkles, scribbles, cutouts
+   ========================================================= */
+
+// ---------- STAR shapes (a few different styles) ----------
+const StarFilled = ({ size = 24, color = "#FFD23D", stroke = "#0E0E0C", strokeWidth = 1.5 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke={stroke} strokeWidth={strokeWidth} strokeLinejoin="round">
+    <path d="M12 2 L14.6 8.6 L21.5 9.2 L16.2 13.8 L17.9 20.5 L12 16.9 L6.1 20.5 L7.8 13.8 L2.5 9.2 L9.4 8.6 Z" />
+  </svg>
+);
+
+const StarOutline = ({ size = 24, color = "#0E0E0C", strokeWidth = 1.6 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" strokeLinecap="round">
+    <path d="M12 2 L14.6 8.6 L21.5 9.2 L16.2 13.8 L17.9 20.5 L12 16.9 L6.1 20.5 L7.8 13.8 L2.5 9.2 L9.4 8.6 Z" />
+  </svg>
+);
+
+const StarSparkle = ({ size = 24, color = "#0E0E0C" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <path d="M12 0 L13.2 10.8 L24 12 L13.2 13.2 L12 24 L10.8 13.2 L0 12 L10.8 10.8 Z" />
+  </svg>
+);
+
+const Heart = ({ size = 22, color = "#E63A33", stroke = "#0E0E0C", strokeWidth = 1.5 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke={stroke} strokeWidth={strokeWidth} strokeLinejoin="round">
+    <path d="M12 21s-7-4.5-9.5-9c-1.5-2.7 0-6 3-6 2 0 3.5 1.5 4.5 3 1-1.5 2.5-3 4.5-3 3 0 4.5 3.3 3 6C19 16.5 12 21 12 21z"/>
+  </svg>
+);
+
+const Scribble = ({ size = 60, color = "#0E0E0C", strokeWidth = 2 }) => (
+  <svg width={size} height={size} viewBox="0 0 60 60" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 30 C 18 10, 30 50, 42 28 S 56 18, 56 18" />
+  </svg>
+);
+
+const Dot = ({ size = 10, color = "#1B3FE0" }) => (
+  <span style={{
+    display: "inline-block",
+    width: size, height: size, borderRadius: "50%",
+    background: color,
+  }} />
+);
+
+// ---------- Cutout placeholder (image slot styled) ----------
+const Cutout = ({ label, c1 = "#FFD9E8", c2 = "#FFC0D6", radius = 16, style = {} }) => (
+  <div
+    className="ks-cut-ph"
+    data-label={label}
+    style={{ borderRadius: radius, "--ph-c1": c1, "--ph-c2": c2, ...style }}
+  />
+);
+
+// ---------- Scatter: place a bunch of decorations randomly ----------
+// Deterministic so layout doesn't shift between renders
+function seededScatter(seed, count, w, h) {
+  let s = seed;
+  const rand = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    out.push({
+      x: rand() * w,
+      y: rand() * h,
+      r: (rand() - 0.5) * 60,
+      size: 14 + Math.round(rand() * 18),
+      kind: rand(),
+    });
+  }
+  return out;
+}
+
+const DecorScatter = ({ seed = 7, density = 24, palette = ["yellow","pink","blue","red","mint"], style = {} }) => {
+  const items = seededScatter(seed, density, 100, 100); // %
+  const colors = {
+    yellow: "#FFD23D", pink: "#FF3B86", blue: "#1B3FE0",
+    red: "#E63A33", mint: "#6CE6BA", black: "#0E0E0C",
+  };
+  return (
+    <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 1, ...style }}>
+      {items.map((it, i) => {
+        const colorKey = palette[i % palette.length];
+        const color = colors[colorKey] || colorKey;
+        let el = null;
+        if (it.kind < 0.28) el = <StarFilled size={it.size} color={color} />;
+        else if (it.kind < 0.55) el = <StarOutline size={it.size + 4} color="#0E0E0C" />;
+        else if (it.kind < 0.72) el = <StarSparkle size={it.size + 6} color={color} />;
+        else if (it.kind < 0.88) el = <Heart size={it.size} color={color} />;
+        else el = <Dot size={Math.max(6, it.size / 2)} color={color} />;
+        return (
+          <span
+            key={i}
+            style={{
+              position: "absolute",
+              left: `${it.x}%`,
+              top: `${it.y}%`,
+              transform: `translate(-50%, -50%) rotate(${it.r}deg)`,
+            }}
+          >{el}</span>
+        );
+      })}
+    </div>
+  );
+};
+
+// ---------- Annotation (hot-pink callout box like leoleocked) ----------
+const Annotation = ({ text, x, y, rotate = -2 }) => (
+  <span
+    className="ks-anno"
+    style={{ left: `${x}%`, top: `${y}%`, transform: `rotate(${rotate}deg)` }}
+  >{text}</span>
+);
+
+// Export to window for cross-script access
+Object.assign(window, {
+  StarFilled, StarOutline, StarSparkle, Heart, Scribble, Dot,
+  Cutout, DecorScatter, Annotation,
+});
+
+  </script>
+  <script type="text/babel">
+/* global React, ReactDOM */
+/* global StarFilled, StarOutline, StarSparkle, Heart, Scribble, Dot */
+/* global Cutout, DecorScatter, Annotation */
+/* global useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakToggle, TweakSlider, TweakColor */
+
+const { useState, useEffect, useRef, useMemo } = React;
+
+/* =========================================================
+   DATA
+   ========================================================= */
+
+const AREAS = [
+{ value: "Hongdae / Yeonnam", sub: "youth · indie · late night", img: "img/area-hongdae.jpg" },
+{ value: "Seongsu", sub: "cafes · brands · workshops", img: "img/area-seongsu.jpg" },
+{ value: "Anguk / Bukchon", sub: "tradition · small lanes", img: "img/area-bukchon.jpg" },
+{ value: "Myeongdong / Euljiro", sub: "central food + shopping", img: "img/area-myeongdong.jpg" },
+{ value: "Itaewon / Hannam", sub: "global food + design", img: "img/area-itaewon.jpg" },
+{ value: "Gangnam / Sinsa", sub: "polished · trendy · busy", img: "img/area-gangnam.jpg" }];
+
+
+const TIMES = [
+{ value: "30–60 min", sub: "I arrived early", img: "img/time-1.jpg" },
+{ value: "1–2 hours", sub: "a quick nearby loop", img: "img/time-2.jpg" },
+{ value: "2–3 hours", sub: "a relaxed route", img: "img/time-3.jpg" },
+{ value: "Half day", sub: "the long way around", img: "img/time-4.jpg" }];
+
+
+const MOODS = [
+{ value: "Local food", sub: "meals locals save", peeks: ["img/mood-food-1.jpg", "img/mood-food-2.jpg", "img/mood-food-3.jpg"] },
+{ value: "Cafes & dessert", sub: "coffee, bakery, sweets", peeks: ["img/mood-cafe-1.jpg", "img/mood-cafe-2.jpg", "img/mood-cafe-1.jpg"] },
+{ value: "Drinks & night", sub: "bars, lights, late", peeks: ["img/mood-drinks-1.jpg", "img/mood-drinks-2.jpg", "img/mood-drinks-3.jpg"] },
+{ value: "Shop & browse", sub: "books, small brands", peeks: ["img/mood-shop-1.jpg", "img/mood-shop-2.jpg", "img/mood-shop-3.jpg"] },
+{ value: "Culture & activities", sub: "exhibits, classes", peeks: ["img/mood-culture-1.jpg", "img/mood-culture-2.jpg", "img/mood-culture-3.jpg"] },
+{ value: "Walks & views", sub: "parks, lanes, photos", peeks: ["img/mood-walks-1.jpg", "img/mood-walks-2.jpg", "img/mood-walks-1.jpg"] }];
+
+
+// Route results vary by mood — keep it small but real-feeling.
+const ROUTES = {
+  "Local food": [
+  { name: "Yeonnam Galmaegisal", type: "backstreet bbq", stay: "55 min", walk: "5 min walk", why: "ten-seat spot tucked behind the main strip; older neighborhood crowd.", img: "img/mood-food-1.jpg" },
+  { name: "Gyeongui Line Forest", type: "park lane", stay: "20 min", walk: "8 min walk", why: "old rail-line turned linear park; the cooling-off stretch.", img: "img/mood-walks-1.jpg" },
+  { name: "Café Pause", type: "tiny cafe", stay: "30 min", walk: "4 min walk", why: "single-origin, no laptops, big front window — a real sit-down.", img: "img/mood-cafe-1.jpg" },
+  { name: "Record Shop Donguri", type: "vinyl shop", stay: "20 min", walk: "—", why: "korean indie + city pop; the owner will play whatever you ask.", img: "img/mood-shop-1.jpg" }],
+
+  "Cafes & dessert": [
+  { name: "Felt Coffee", type: "tasting bar", stay: "35 min", walk: "—", why: "filter flight on a marble counter; minimal, focused.", img: "img/mood-cafe-1.jpg" },
+  { name: "Gyeongui Line Forest", type: "park lane", stay: "15 min", walk: "6 min walk", why: "the walking stretch between cafes.", img: "img/mood-walks-1.jpg" },
+  { name: "Eclair de Génie", type: "patisserie", stay: "25 min", walk: "7 min walk", why: "the éclair pull is for real; sit upstairs near the window.", img: "img/mood-cafe-2.jpg" },
+  { name: "Anthracite", type: "warehouse cafe", stay: "30 min", walk: "9 min walk", why: "old shoe-factory; concrete + greenery, ends the loop slow.", img: "img/mood-food-3.jpg" }],
+
+  "Drinks & night": [
+  { name: "Mortar", type: "natural wine", stay: "60 min", walk: "—", why: "smaller-producer list; the bartender pours generously.", img: "img/mood-drinks-1.jpg" },
+  { name: "Yeonnam back lanes", type: "neighborhood walk", stay: "15 min", walk: "5 min walk", why: "low-rise residential; the right vibe between drinks.", img: "img/area-hongdae.jpg" },
+  { name: "Hidden Trash", type: "listening bar", stay: "45 min", walk: "8 min walk", why: "vinyl-only, small room, no menu — order what they pour.", img: "img/mood-drinks-2.jpg" },
+  { name: "Late noodle, Hyodo", type: "supper", stay: "30 min", walk: "6 min walk", why: "open until 3am; the close-out bowl.", img: "img/mood-food-2.jpg" }]
+
+};
+
+const REFINES = [
+{ id: "walk", label: "less walking", emoji: "🚶" },
+{ id: "local", label: "more local", emoji: "🏘️" },
+{ id: "cheap", label: "cheaper", emoji: "💸" },
+{ id: "cafe", label: "more cafes", emoji: "☕" },
+{ id: "quiet", label: "avoid crowds", emoji: "🤫" },
+{ id: "open", label: "open right now", emoji: "🟢" }];
+
+
+/* =========================================================
+   COMPONENTS
+   ========================================================= */
+
+// Fills its container with a cover-fit photo.
+function Photo({ src, alt = "", style = {} }) {
+  return (
+    <img
+      className="ks-photo"
+      src={src}
+      alt={alt}
+      loading="lazy"
+      style={style}
+    />);
+
+}
+
+function Brand() {
+  return (
+    <div className="ks-topbar-left">
+      <span className="ks-logo">
+        <span className="ks-logo-bracket">[</span>kandid.spot<span className="ks-logo-bracket">]</span>
+      </span>
+      <span className="ks-tag-mono">seoul · v2026</span>
+    </div>);
+
+}
+
+function TopBar({ onNew, onSaved, screen }) {
+  return (
+    <header className="ks-topbar">
+      <Brand />
+      <div className="ks-topbar-right">
+        {screen === "result" &&
+        <button className="ks-nav-item" onClick={onNew}>+ new route</button>
+        }
+        <button className="ks-nav-item" onClick={onSaved}>saved</button>
+        <button className="ks-nav-item primary">JK</button>
+      </div>
+    </header>);
+
+}
+
+function BottomStrip() {
+  return (
+    <div className="ks-bottom-strip">
+      <span>kandid.spot</span>
+      <span className="dot"></span>
+      <span>seoul / curated by locals</span>
+      <span className="dot"></span>
+      <span>not a top-10 list</span>
+      <span style={{ marginLeft: "auto", opacity: 0.7 }}>vol. 01 · 2026</span>
+    </div>);
+
+}
+
+/* ---------- LANDING ---------- */
+function Landing({ onStart }) {
+  return (
+    <div className="ks-hero">
+      <div className="ks-hero-grid">
+        {/* LEFT — editorial headline */}
+        <div className="ks-hero-left">
+          <div className="ks-hero-eyebrow">
+            <span>kandid.spot</span>
+            <span className="ks-hero-eyebrow-rule"></span>
+            <span>vol. 01 / seoul</span>
+          </div>
+
+          <h1 className="ks-hero-headline">
+            One <span className="italic">candid</span> route<br />
+            through <span className="accent">Seoul</span>.
+          </h1>
+
+          <p className="ks-hero-lead">
+            Tell us where you are, how much time you've got, and what feels right.
+            We hand back <em>one</em> route worth walking — picked by people who
+            actually live here.
+          </p>
+
+          <div className="ks-hero-ctrow">
+            <button className="ks-cta" onClick={onStart}>
+              start the route
+              <span className="ks-cta-arrow">→</span>
+            </button>
+            <button className="ks-circled-cta">how it works</button>
+          </div>
+
+          <div className="ks-hero-meta">
+            <span>area</span><span>·</span>
+            <span>time</span><span>·</span>
+            <span>mood</span><span>·</span>
+            <span className="result">your route</span>
+          </div>
+        </div>
+
+        {/* RIGHT — graphic composition */}
+        <div className="ks-hero-right">
+          <div className="ks-hero-tile ks-tile-1">
+            <Photo src="img/landing-meal.jpg" alt="backstreet meal" />
+            <span className="ks-tile-num">01</span>
+            <span className="ks-tile-cap">backstreet meal</span>
+          </div>
+          <div className="ks-hero-tile ks-tile-2">
+            <Photo src="img/landing-walk.jpg" alt="walking" />
+            <span className="ks-tile-num">02</span>
+            <span className="ks-tile-cap">a walk between</span>
+          </div>
+          <div className="ks-hero-tile ks-tile-3">
+            <Photo src="img/landing-quiet.jpg" alt="a quiet stop" />
+            <span className="ks-tile-num">03</span>
+            <span className="ks-tile-cap">a quiet stop</span>
+          </div>
+          <div className="ks-hero-tile ks-tile-4">
+            <Photo src="img/landing-end.jpg" alt="ending" />
+            <span className="ks-tile-num">04</span>
+            <span className="ks-tile-cap">ending</span>
+          </div>
+
+          {/* one annotation tag, not many */}
+          <span className="ks-hero-anno">
+            <span className="ks-hero-anno-line"></span>
+            chosen by a local · 18 min walk
+          </span>
+        </div>
+      </div>
+    </div>);
+
+}
+
+/* ---------- ONBOARDING STEPS ---------- */
+function StepHeader({ step, total, kicker, headline, sub }) {
+  return (
+    <>
+      <div className="ks-progress">
+        {Array.from({ length: total }).map((_, i) =>
+        <span key={i} className={`ks-progress-seg ${i < step - 1 ? "done" : i === step - 1 ? "active" : ""}`} />
+        )}
+      </div>
+      <div className="ks-step-tag">
+        <span className="pill">step {step} / {total}</span>
+        <span>{kicker}</span>
+      </div>
+      <h1 className="ks-q-headline">{headline}</h1>
+      {sub && <p className="ks-q-sub">{sub}</p>}
+    </>);
+
+}
+
+function PolaroidGrid({ options, value, onChange }) {
+  return (
+    <div className="ks-polaroids">
+      {options.map((o, i) => (
+        <button
+          key={o.value}
+          type="button"
+          className={`ks-polaroid ${value === o.value ? "selected" : ""}`}
+          onClick={() => onChange(o.value)}
+          style={{ "--tilt": `${(i % 2 === 0 ? -1 : 1) * (0.6 + (i * 0.3))}deg` }}
+        >
+          <div className="ks-polaroid-photo">
+            <Photo src={o.img} alt={o.value} />
+            <div className="ks-polaroid-grad"></div>
+            <span className="ks-polaroid-num">{String(i + 1).padStart(2, "0")} / {String(options.length).padStart(2, "0")}</span>
+            <div className="ks-polaroid-meta">
+              <div className="ks-polaroid-name">{o.value}</div>
+              <div className="ks-polaroid-sub">{o.sub}</div>
+            </div>
+            <span className="ks-polaroid-check">✓</span>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Mood folder picker — files-on-desktop style
+const FOLDER_PALETTE = [
+  { tab: "#FFB8C8", body: "#FFD9E8" }, // pink
+  { tab: "#A8C7FF", body: "#D8E3FF" }, // blue
+  { tab: "#FFD66B", body: "#FFE9A8" }, // yellow
+  { tab: "#9CD9B6", body: "#D8F6E4" }, // green
+  { tab: "#C9BDFF", body: "#E7E1FF" }, // lavender
+  { tab: "#FFB199", body: "#FFD7CC" }, // peach
+];
+
+function Folder({ option, idx, selected, onClick }) {
+  const c = FOLDER_PALETTE[idx % FOLDER_PALETTE.length];
+  const peeks = [
+    { rot: -8, x: "8%" },
+    { rot: 4, x: "37%" },
+    { rot: -3, x: "62%" },
+  ];
+  return (
+    <button
+      type="button"
+      className={`ks-folder ${selected ? "selected" : ""}`}
+      onClick={onClick}
+    >
+      {/* Photos peeking out from above the folder */}
+      <div className="ks-folder-peeks">
+        {peeks.map((p, i) => (
+          <div
+            key={i}
+            className="ks-folder-peek"
+            style={{ left: p.x, transform: `rotate(${p.rot}deg)` }}
+          >
+            <Photo src={option.peeks[i]} alt="" />
+          </div>
+        ))}
+      </div>
+      {/* The folder body */}
+      <svg className="ks-folder-svg" viewBox="0 0 220 130" preserveAspectRatio="none">
+        {/* tab */}
+        <path d="M0 16 Q0 6 10 6 L80 6 L92 16 L220 16 L220 22 L0 22 Z" fill={c.tab} stroke="#0E0E0C" strokeWidth="1.5" strokeLinejoin="round" />
+        {/* body */}
+        <path d="M0 20 L220 20 L220 130 L0 130 Z" fill={c.body} stroke="#0E0E0C" strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>
+      <span className="ks-folder-name">{option.value}</span>
+      <span className="ks-folder-sub">{option.sub}</span>
+      <span className="ks-folder-check">{selected ? "✓ selected" : "double-click to open"}</span>
+    </button>
+  );
+}
+
+function FolderGrid({ options, value, onChange }) {
+  return (
+    <div className="ks-folders">
+      {options.map((o, i) => (
+        <Folder
+          key={o.value}
+          option={o}
+          idx={i}
+          selected={value === o.value}
+          onClick={() => onChange(o.value)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Onboard({ step, picks, setPicks, onBack, onNext }) {
+  const conf = {
+    1: { kicker: "where are you now?", headline: <>where are <span className="serif-it">you</span> right now?</>, sub: "pick a neighborhood — we'll anchor the route there. one is enough.", options: AREAS, key: "area", grid: "polaroid" },
+    2: { kicker: "how much time?", headline: <>how much <span className="accent">time</span>?</>, sub: "we keep the route realistic for the window you've got.", options: TIMES, key: "time", grid: "polaroid" },
+    3: { kicker: "what's the vibe?", headline: <>what's the <span className="serif-it">vibe?</span></>, sub: "pick a folder. we'll handle the order, the timing, and the picks.", options: MOODS, key: "mood", grid: "folder" }
+  }[step];
+
+  const value = picks[conf.key];
+  const canNext = !!value;
+  const Grid = conf.grid === "folder" ? FolderGrid : PolaroidGrid;
+
+  return (
+    <div className="ks-onboard">
+      <DecorScatter seed={step * 17} density={6} palette={["blue", "black"]} />
+      <div style={{ position: "relative", zIndex: 5 }}>
+        <StepHeader step={step} total={3} kicker={conf.kicker} headline={conf.headline} sub={conf.sub} />
+        <Grid
+          options={conf.options}
+          value={value}
+          onChange={(v) => setPicks({ ...picks, [conf.key]: v })}
+        />
+
+        <div className="ks-actions">
+          <div className="left">
+            <button className="ks-btn-back" disabled={step === 1} onClick={onBack}>← back</button>
+          </div>
+          <div className="right">
+            <span style={{ fontFamily: "var(--ks-mono)", fontSize: 11, color: "var(--ks-ink-soft)", marginRight: 8 }}>
+              {Object.values(picks).filter(Boolean).length} / 3 picked
+            </span>
+            <button className="ks-btn-next" disabled={!canNext} onClick={onNext}>
+              {step === 3 ? "build my route →" : "next →"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>);
+
+}
+
+/* ---------- LOADING ---------- */
+const LOADING_STEPS = [
+"[ reading the streets ]",
+"[ checking walking time ]",
+"[ matching the mood ]",
+"[ avoiding obvious tourist traps ]",
+"[ finding a route you can start now ]"];
+
+
+function Loading({ area }) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setIdx((i) => (i + 1) % LOADING_STEPS.length), 700);
+    return () => clearInterval(t);
+  }, []);
+  const cards = [
+  { x: "10%", y: "20%", rot: -8, img: "img/load-1.jpg" },
+  { x: "30%", y: "60%", rot: 6, img: "img/load-2.jpg" },
+  { x: "55%", y: "10%", rot: -3, img: "img/load-3.jpg" },
+  { x: "78%", y: "55%", rot: 9, img: "img/load-4.jpg" }];
+
+  return (
+    <div className="ks-loading">
+      <DecorScatter seed={91} density={10} palette={["blue", "black", "yellow"]} />
+      <div style={{ position: "relative", zIndex: 5 }}>
+        <div style={{ fontFamily: "var(--ks-mono)", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ks-ink-soft)" }}>
+          ✦ building your route ✦
+        </div>
+        <h1 className="ks-loading-headline">
+          one <span className="accent">candid</span> route<br />
+          through <span style={{ fontFamily: "var(--ks-serif)", fontStyle: "italic", color: "var(--ks-blue)" }}>{area || "seoul"}</span>…
+        </h1>
+        <div className="ks-loading-step">{LOADING_STEPS[idx]}</div>
+
+        <div className="ks-loading-shuffler">
+          {cards.map((c, i) =>
+          <div
+            key={i}
+            className="ks-loading-card"
+            style={{ left: c.x, top: c.y, "--rot": `${c.rot}deg`, animationDelay: `${i * 0.3}s` }}>
+            
+              <Photo src={c.img} alt="" />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>);
+
+}
+
+/* ---------- MAP (custom SVG) ---------- */
+function RouteMap({ stops, activeIdx, onPick }) {
+  // pin positions (% inside viewBox)
+  const positions = [
+  { x: 22, y: 70 },
+  { x: 38, y: 38 },
+  { x: 62, y: 50 },
+  { x: 78, y: 24 }];
+
+  const path = positions.
+  map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).
+  join(" ");
+  return (
+    <div className="ks-map-frame">
+      {/* toolbar */}
+      <div className="ks-map-toolbar">
+        <span className="ks-map-loc">
+          <Dot size={6} color="#1B3FE0" />
+          yeonnam-dong · mapo-gu
+        </span>
+        <div className="ks-map-ctrls">
+          <button className="ks-map-ctrl" aria-label="zoom in">+</button>
+          <button className="ks-map-ctrl" aria-label="zoom out">−</button>
+          <button className="ks-map-ctrl" aria-label="locate">◎</button>
+        </div>
+      </div>
+
+      <svg className="ks-map-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+        {/* paper texture grid */}
+        <defs>
+          <pattern id="ks-grid" width="6" height="6" patternUnits="userSpaceOnUse">
+            <path d="M6 0 L0 0 L0 6" fill="none" stroke="#E8E4DA" strokeWidth="0.3" />
+          </pattern>
+        </defs>
+        <rect width="100" height="100" fill="url(#ks-grid)" />
+
+        {/* "blocks" of buildings */}
+        {[
+        [10, 12, 18, 14], [34, 10, 16, 12], [56, 8, 18, 10], [78, 12, 14, 10],
+        [8, 30, 14, 10], [26, 30, 18, 12], [50, 28, 12, 14], [68, 30, 14, 12], [86, 30, 8, 12],
+        [12, 52, 16, 10], [34, 50, 14, 12], [54, 52, 14, 12], [72, 54, 18, 10],
+        [18, 72, 14, 12], [40, 74, 16, 10], [64, 74, 12, 12], [82, 74, 12, 10]].
+        map((b, i) =>
+        <rect key={i} x={b[0]} y={b[1]} width={b[2]} height={b[3]} fill="#F4F1EA" stroke="#0E0E0C" strokeWidth="0.3" rx="0.6" />
+        )}
+
+        {/* roads (light) */}
+        <line x1="0" y1="45" x2="100" y2="45" stroke="#E1DCCF" strokeWidth="2.2" />
+        <line x1="48" y1="0" x2="48" y2="100" stroke="#E1DCCF" strokeWidth="2.2" />
+
+        {/* walking line */}
+        <path d={path} fill="none" stroke="#1B3FE0" strokeWidth="0.8" strokeDasharray="1.4 1.4" strokeLinecap="round" />
+
+        {/* pins */}
+        {positions.map((p, i) =>
+        <g key={i} style={{ cursor: "pointer" }} onClick={() => onPick(i)}>
+            {activeIdx === i &&
+          <circle cx={p.x} cy={p.y} r="4.5" fill="#6CE6BA" opacity="0.5">
+                <animate attributeName="r" values="4.5;7;4.5" dur="1.8s" repeatCount="indefinite" />
+              </circle>
+          }
+            <circle cx={p.x} cy={p.y} r="3" fill={activeIdx === i ? "#1B3FE0" : "#FF3B86"} stroke="#0E0E0C" strokeWidth="0.5" />
+            <text x={p.x} y={p.y + 1} fontSize="3" textAnchor="middle" fill="white" fontFamily="var(--ks-display)" fontWeight="700">{i + 1}</text>
+          </g>
+        )}
+
+        {/* scattered stars on map */}
+        <g opacity="0.6">
+          <text x="14" y="20" fontSize="3" fill="#0E0E0C">★</text>
+          <text x="88" y="60" fontSize="3" fill="#0E0E0C">★</text>
+          <text x="46" y="86" fontSize="3" fill="#FF3B86">★</text>
+          <text x="68" y="14" fontSize="3" fill="#FFD23D">★</text>
+        </g>
+      </svg>
+
+      {/* floating place card */}
+      {activeIdx != null && stops[activeIdx] &&
+      <div className="ks-float-card">
+          <div className="ks-float-num">{activeIdx + 1}</div>
+          <div className="ks-float-body">
+            <div className="ks-float-name">{stops[activeIdx].name}</div>
+            <div className="ks-float-meta">{stops[activeIdx].type} · {stops[activeIdx].stay}</div>
+          </div>
+          <Photo src={stops[activeIdx].img} alt={stops[activeIdx].name}
+        style={{ width: 56, height: 56, borderRadius: 12, border: "1.5px solid var(--ks-rule)", flexShrink: 0 }} />
+        </div>
+      }
+    </div>);
+
+}
+
+/* ---------- RESULT ---------- */
+function Result({ picks, onEdit, onToast }) {
+  const stops = ROUTES[picks.mood] || ROUTES["Local food"];
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [refines, setRefines] = useState([]);
+
+  const toggleRefine = (id) => {
+    setRefines((rs) => rs.includes(id) ? rs.filter((r) => r !== id) : [...rs, id]);
+    onToast("refining the route…");
+  };
+
+  return (
+    <div className="ks-result">
+      <div className="ks-result-left">
+        <DecorScatter seed={43} density={4} palette={["blue"]} />
+        <div style={{ position: "relative", zIndex: 5 }}>
+          {/* Summary */}
+          <div className="ks-summary">
+            <div className="ks-summary-num">04</div>
+            <div className="ks-summary-body">
+              <div className="ks-summary-label">your situation</div>
+              <div className="ks-summary-tags">{picks.area} · {picks.time} · {picks.mood}</div>
+              <div className="ks-summary-meta">4 stops · 2h 05m total · 18 min walking</div>
+            </div>
+            <button className="ks-summary-edit" onClick={onEdit}>edit</button>
+          </div>
+
+          {/* Why */}
+          <div className="ks-why">
+            <span className="ks-why-tag">why this</span>
+            <div className="ks-why-title">we skipped the strip.</div>
+            <p className="ks-why-body">
+              the main drag's crowded right now. we routed you through the lived-in lanes —
+              a backstreet meal, a residential walk, a ten-seat cafe, a hidden record shop.
+              all walkable. all open. all picked by people who actually live here.
+            </p>
+          </div>
+
+          {/* Timeline */}
+          <div className="ks-timeline">
+            <div className="ks-timeline-head">
+              <h2 className="ks-timeline-title">
+                one <span className="italic">candid</span> route
+              </h2>
+              <span className="ks-timeline-sub">tap a stop for details</span>
+            </div>
+
+            {stops.map((s, i) =>
+            <React.Fragment key={i}>
+                <div
+                className={`ks-stop ${activeIdx === i ? "active" : ""}`}
+                onClick={() => setActiveIdx(i)}>
+                
+                  <div className="ks-stop-img">
+                    <span className="ks-stop-num">{i + 1}</span>
+                    <Photo src={s.img} alt={s.name} />
+                  </div>
+                  <div className="ks-stop-body">
+                    <div className="ks-stop-cap">{s.type}</div>
+                    <div className="ks-stop-name">{s.name}</div>
+                    <div className="ks-stop-meta">⏱ stay {s.stay}{s.walk !== "—" ? `  ·  → ${s.walk}` : ""}</div>
+                  </div>
+                </div>
+                {i < stops.length - 1 &&
+              <div className="ks-stop-walk">
+                    <span className="ks-stop-walk-line"></span>
+                    walk · {s.walk}
+                    <span className="ks-stop-walk-line" style={{ flex: 1 }}></span>
+                  </div>
+              }
+              </React.Fragment>
+            )}
+          </div>
+
+          {/* Refine */}
+          <div className="ks-refine">
+            <div className="ks-refine-title">→ refine this route</div>
+            <div className="ks-chips">
+              {REFINES.map((r) =>
+              <button
+                key={r.id}
+                className={`ks-chip ${refines.includes(r.id) ? "on" : ""}`}
+                onClick={() => toggleRefine(r.id)}>
+                {r.emoji} {r.label}</button>
+              )}
+            </div>
+          </div>
+
+          {/* Action bar */}
+          <div className="ks-actionbar">
+            <button className="ks-act" onClick={() => onToast("saved ♥")}>♥ save</button>
+            <button className="ks-act" onClick={() => onToast("link copied")}>↗ share</button>
+            <button className="ks-act primary" onClick={() => onToast("opening map…")}>
+              open in map →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="ks-result-right">
+        <DecorScatter seed={71} density={3} palette={["blue"]} />
+        <div style={{ position: "relative", zIndex: 5 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
+            <h2 style={{ fontFamily: "var(--ks-display)", fontWeight: 700, fontSize: 28, letterSpacing: "-0.025em", margin: 0 }}>
+              the <span style={{ fontFamily: "var(--ks-serif)", fontStyle: "italic", fontWeight: 400, color: "var(--ks-blue)" }}>map</span>
+            </h2>
+            <span style={{ fontFamily: "var(--ks-mono)", fontSize: 11, color: "var(--ks-ink-soft)" }}>
+              ★ tap a pin
+            </span>
+          </div>
+
+          <RouteMap stops={stops} activeIdx={activeIdx} onPick={setActiveIdx} />
+
+          {/* a little notes block under the map */}
+          <div style={{
+            marginTop: 18,
+            padding: "14px 16px",
+            border: "1.5px dashed var(--ks-rule)",
+            borderRadius: 14,
+            fontFamily: "var(--ks-mono)",
+            fontSize: 11,
+            lineHeight: 1.6,
+            color: "var(--ks-ink)"
+          }}>
+            <strong style={{ letterSpacing: "0.04em" }}>NOTE:</strong>{" "}
+            walking line is dashed because the route is meant to feel loose — you can
+            zigzag, double back, stop somewhere we didn't pin. ★
+          </div>
+
+          <button className="ks-fab" onClick={() => onToast("ask kandid spot — coming soon")}>
+            <span className="ks-fab-dot"></span>
+            ask kandid spot
+          </button>
+        </div>
+      </div>
+    </div>);
+
+}
+
+/* =========================================================
+   APP ROOT
+   ========================================================= */
+
+const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
+  "accent": "blue",
+  "density": 1,
+  "showStrip": true,
+  "paperBg": "#F4F1EA"
+} /*EDITMODE-END*/;
+
+const ACCENT_PALETTES = {
+  blue: { blue: "#1B3FE0", pink: "#FF3B86", yellow: "#FFD23D", mint: "#6CE6BA", red: "#E63A33" },
+  electric: { blue: "#0033FF", pink: "#FF006E", yellow: "#FFE600", mint: "#00E5A8", red: "#FF2D2D" },
+  warm: { blue: "#C53A2A", pink: "#FF6B6B", yellow: "#F4B942", mint: "#9CCBA0", red: "#8B2C20" },
+  ink: { blue: "#0E0E0C", pink: "#FF3B86", yellow: "#FFD23D", mint: "#6CE6BA", red: "#E63A33" }
+};
+
+function App() {
+  const [screen, setScreen] = useState("landing"); // landing | onboard | loading | result
+  const [step, setStep] = useState(1);
+  const [picks, setPicks] = useState({ area: "", time: "", mood: "" });
+  const [toast, setToast] = useState("");
+
+  const [tweaks, setTweak] = useTweaks(DEFAULT_TWEAKS);
+
+  // Apply tweaks to CSS vars
+  useEffect(() => {
+    const p = ACCENT_PALETTES[tweaks.accent] || ACCENT_PALETTES.blue;
+    const root = document.documentElement;
+    root.style.setProperty("--ks-blue", p.blue);
+    root.style.setProperty("--ks-pink", p.pink);
+    root.style.setProperty("--ks-yellow", p.yellow);
+    root.style.setProperty("--ks-mint", p.mint);
+    root.style.setProperty("--ks-red", p.red);
+    root.style.setProperty("--ks-bg", tweaks.paperBg);
+  }, [tweaks.accent, tweaks.paperBg]);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 1800);
+  };
+
+  const onStart = () => {setScreen("onboard");setStep(1);};
+  const onBack = () => {if (step > 1) setStep(step - 1);else setScreen("landing");};
+  const onNext = () => {
+    if (step < 3) setStep(step + 1);else
+    {
+      setScreen("loading");
+      setTimeout(() => setScreen("result"), 2600);
+    }
+  };
+  const onEdit = () => {setScreen("onboard");setStep(1);};
+  const onNew = () => {setScreen("onboard");setStep(1);setPicks({ area: "", time: "", mood: "" });};
+  const onSaved = () => showToast("no saved routes yet — try the first one!");
+
+  return (
+    <div className="ks-stage" style={{ padding: "0px" }}>
+      <div className="ks-sheet" data-screen-label={`Kandid Spot · ${screen}`}>
+        <TopBar onNew={onNew} onSaved={onSaved} screen={screen} />
+
+        {screen === "landing" && <Landing onStart={onStart} />}
+        {screen === "onboard" &&
+        <Onboard
+          step={step}
+          picks={picks}
+          setPicks={setPicks}
+          onBack={onBack}
+          onNext={onNext} />
+
+        }
+        {screen === "loading" && <Loading area={picks.area} />}
+        {screen === "result" && <Result picks={picks} onEdit={onEdit} onToast={showToast} />}
+
+        {tweaks.showStrip && <BottomStrip />}
+      </div>
+
+      <div className={`ks-toast ${toast ? "on" : ""}`}>{toast}</div>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection title="Look">
+          <TweakRadio
+            label="Accent palette"
+            value={tweaks.accent}
+            onChange={(v) => setTweak("accent", v)}
+            options={[
+            { value: "blue", label: "Blue" },
+            { value: "electric", label: "Electric" },
+            { value: "warm", label: "Warm" },
+            { value: "ink", label: "Ink" }]
+            } />
+          
+          <TweakColor
+            label="Paper background"
+            value={tweaks.paperBg}
+            onChange={(v) => setTweak("paperBg", v)}
+            options={["#F4F1EA", "#FFFFFF", "#F2EEFF", "#0E0E0C", "#FFE9D6"]} />
+          
+          <TweakToggle
+            label="Show bottom strip"
+            value={tweaks.showStrip}
+            onChange={(v) => setTweak("showStrip", v)} />
+          
+        </TweakSection>
+        <TweakSection title="Quick jump">
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <button className="ks-nav-item" onClick={() => setScreen("landing")}>landing</button>
+            <button className="ks-nav-item" onClick={() => {setScreen("onboard");setStep(1);}}>onboard · step 1</button>
+            <button className="ks-nav-item" onClick={() => {setScreen("onboard");setStep(2);}}>onboard · step 2</button>
+            <button className="ks-nav-item" onClick={() => {setScreen("onboard");setStep(3);}}>onboard · step 3</button>
+            <button className="ks-nav-item" onClick={() => setScreen("loading")}>loading</button>
+            <button className="ks-nav-item" onClick={() => {
+              setPicks({ area: "Hongdae / Yeonnam", time: "2–3 hours", mood: "Local food" });
+              setScreen("result");
+            }}>result</button>
+          </div>
+        </TweakSection>
+      </TweaksPanel>
+    </div>);
+
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
