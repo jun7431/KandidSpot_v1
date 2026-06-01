@@ -6136,6 +6136,7 @@ body {
 .ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"] .ob-emoji,
 .ob-options-area .ob-option[data-internal-value="itaewon_hannam"] .ob-emoji,
 .ob-options-area .ob-option[data-internal-value="anguk_bukchon"] .ob-emoji,
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-emoji,
 .ob-options-area .ob-option[data-internal-value="seongsu"] .ob-emoji,
 .ob-options-time .ob-option .ob-emoji,
 .ob-options-mood .ob-option .ob-emoji {
@@ -6151,7 +6152,6 @@ body {
 }
 
 .ob-options-area .ob-option[data-internal-value="near_me"] .ob-emoji,
-.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-emoji,
 .ob-options-start .ob-option .ob-emoji {
   display: grid;
 }
@@ -6167,6 +6167,7 @@ body {
 .ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"]::after,
 .ob-options-area .ob-option[data-internal-value="itaewon_hannam"]::after,
 .ob-options-area .ob-option[data-internal-value="anguk_bukchon"]::after,
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"]::after,
 .ob-options-area .ob-option[data-internal-value="seongsu"]::after {
   top: 18px;
   right: 18px;
@@ -6180,7 +6181,6 @@ body {
   }
 
   .ob-options-area .ob-option[data-internal-value="near_me"] .ob-emoji,
-  .ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-emoji,
   .ob-options-start .ob-option .ob-emoji {
     display: grid;
   }
@@ -6552,6 +6552,281 @@ body {
 
   .action-bar {
     padding: 8px 12px;
+  }
+}
+
+/* =================================================================
+   Targeted spacing cleanup: custom time, route brief, builder, stops
+   ================================================================= */
+.ob-custom-time {
+  margin-top: 18px;
+  padding: 20px;
+}
+
+.ob-custom-time .ob-context-label {
+  margin-bottom: 12px;
+}
+
+.ob-custom-time select {
+  min-height: 48px;
+  padding: 12px 44px 12px 16px;
+}
+
+.ob-custom-time .ob-context-hint {
+  margin-top: 12px;
+}
+
+.ob-screen[data-step="2"] .ob-custom-time + .ob-actions {
+  margin-top: 24px;
+}
+
+.route-summary-bar,
+.builder {
+  box-sizing: border-box;
+  width: auto;
+  margin-left: 18px;
+  margin-right: 18px;
+}
+
+.route-summary-bar {
+  gap: 16px;
+  align-items: flex-start;
+  margin-top: 16px;
+  padding: 40px 18px 18px;
+}
+
+.route-summary-bar::before {
+  top: 12px;
+  left: 18px;
+}
+
+.rs-current {
+  min-width: 0;
+  padding-right: 10px;
+}
+
+.rs-label {
+  margin-bottom: 6px;
+}
+
+.rs-value {
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.rs-strap {
+  margin-top: 8px;
+  line-height: 1.35;
+}
+
+.rs-toggle {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.builder {
+  margin-top: 10px;
+  padding: 18px;
+  gap: 14px;
+}
+
+.builder.collapsed {
+  margin-top: 0;
+}
+
+.builder-row {
+  align-items: flex-start;
+  gap: 12px;
+  padding: 2px 0;
+}
+
+.builder-row + .builder-row {
+  padding-top: 12px;
+  border-top: 1.5px dashed rgba(14, 14, 12, 0.28);
+}
+
+.builder-row-label {
+  width: 50px;
+  padding-top: 8px;
+  line-height: 1.2;
+}
+
+.chip-scroller {
+  gap: 8px;
+  padding: 4px 3px 7px;
+}
+
+.chip {
+  padding: 8px 12px;
+  line-height: 1.15;
+}
+
+.builder-start-control {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.builder-start-control .builder-custom-time:not([hidden]) {
+  flex: 0 0 142px;
+  width: 142px;
+  min-height: 38px;
+  margin-top: 2px;
+  padding: 8px 32px 8px 12px;
+}
+
+.build-btn {
+  margin-top: 2px;
+}
+
+.timeline-section .section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px 14px;
+}
+
+.timeline-section .section-head h3 {
+  margin: 0;
+  line-height: 1.05;
+}
+
+.timeline-section .section-sub {
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.stops {
+  gap: 16px;
+}
+
+.stop {
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px;
+}
+
+.stop-num-col {
+  width: 42px;
+}
+
+.stop-num {
+  width: 38px;
+  height: 38px;
+}
+
+.stop-line {
+  min-height: 28px;
+  margin-top: 8px;
+}
+
+.stop-body {
+  padding-top: 1px;
+}
+
+.ks-stop-role {
+  margin: 0 0 9px;
+}
+
+.stop-name {
+  margin: 0 0 8px;
+  line-height: 1.1;
+}
+
+.ks-stop-why {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.stop-meta {
+  gap: 8px;
+  margin-top: 0;
+}
+
+.stop-tag {
+  padding: 5px 9px;
+}
+
+.ks-stop-actions {
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+.ks-stop-link {
+  padding: 7px 11px;
+}
+
+@media (max-width: 980px) {
+  .route-summary-bar,
+  .builder {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
+  .route-summary-bar {
+    margin-top: 12px;
+    padding: 36px 14px 15px;
+  }
+
+  .builder {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 720px) {
+  .ob-custom-time {
+    padding: 16px;
+  }
+
+  .builder-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .builder-row-label {
+    width: auto;
+    padding-top: 0;
+  }
+
+  .builder-start-control {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .builder-start-control .builder-custom-time:not([hidden]) {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .timeline-section .section-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px;
+  }
+
+  .timeline-section .section-sub {
+    text-align: left;
+    white-space: normal;
+  }
+
+  .stop {
+    gap: 12px;
+    padding: 15px;
+  }
+
+  .stop-num-col {
+    width: 38px;
+  }
+
+  .stop-num {
+    width: 34px;
+    height: 34px;
   }
 }
 
@@ -6933,6 +7208,7 @@ body {
 .ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"],
 .ob-options-area .ob-option[data-internal-value="itaewon_hannam"],
 .ob-options-area .ob-option[data-internal-value="anguk_bukchon"],
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"],
 .ob-options-area .ob-option[data-internal-value="seongsu"],
 .ob-options-time .ob-option {
   min-height: 292px;
@@ -6949,6 +7225,7 @@ body {
 .ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"]::before,
 .ob-options-area .ob-option[data-internal-value="itaewon_hannam"]::before,
 .ob-options-area .ob-option[data-internal-value="anguk_bukchon"]::before,
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"]::before,
 .ob-options-area .ob-option[data-internal-value="seongsu"]::before,
 .ob-options-time .ob-option::before {
   inset: 0;
@@ -6975,6 +7252,10 @@ body {
   background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.18) 45%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/area-bukchon.jpg");
 }
 
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"]::before {
+  background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.18) 45%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/area-gangnam.jpg");
+}
+
 .ob-options-area .ob-option[data-internal-value="seongsu"]::before {
   background-image: linear-gradient(180deg, rgba(14, 14, 12, 0.04), rgba(14, 14, 12, 0.18) 45%, rgba(14, 14, 12, 0.78)), url("/v2-refined-main-app/assets/design-v2/area-seongsu.jpg");
 }
@@ -6999,6 +7280,7 @@ body {
 .ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"] .ob-option-label,
 .ob-options-area .ob-option[data-internal-value="itaewon_hannam"] .ob-option-label,
 .ob-options-area .ob-option[data-internal-value="anguk_bukchon"] .ob-option-label,
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-option-label,
 .ob-options-area .ob-option[data-internal-value="seongsu"] .ob-option-label,
 .ob-options-time .ob-option .ob-option-label {
   max-width: 11ch;
@@ -7011,6 +7293,7 @@ body {
 .ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"] .ob-option-sub,
 .ob-options-area .ob-option[data-internal-value="itaewon_hannam"] .ob-option-sub,
 .ob-options-area .ob-option[data-internal-value="anguk_bukchon"] .ob-option-sub,
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-option-sub,
 .ob-options-area .ob-option[data-internal-value="seongsu"] .ob-option-sub,
 .ob-options-time .ob-option .ob-option-sub {
   max-width: 24ch;
@@ -7039,20 +7322,6 @@ body {
     radial-gradient(circle at 76% 62%, rgba(255, 59, 134, 0.24) 0 10px, transparent 11px),
     repeating-linear-gradient(45deg, rgba(14, 14, 12, 0.08) 0 7px, transparent 7px 15px),
     linear-gradient(135deg, #D8F6E4, #FFFDF7);
-}
-
-.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] {
-  min-height: 230px;
-  padding: 96px 18px 18px;
-  color: var(--ks-v2-ink);
-  text-shadow: none;
-}
-
-.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"]::before {
-  inset: 12px 12px auto;
-  height: 72px;
-  border: var(--ks-v2-line);
-  border-radius: 8px;
 }
 
 .ob-options-mood {
@@ -7133,6 +7402,7 @@ body {
   .ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"],
   .ob-options-area .ob-option[data-internal-value="itaewon_hannam"],
   .ob-options-area .ob-option[data-internal-value="anguk_bukchon"],
+  .ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"],
   .ob-options-area .ob-option[data-internal-value="seongsu"],
   .ob-options-time .ob-option {
     min-height: 260px;
@@ -7154,6 +7424,7 @@ body {
   .ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"],
   .ob-options-area .ob-option[data-internal-value="itaewon_hannam"],
   .ob-options-area .ob-option[data-internal-value="anguk_bukchon"],
+  .ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"],
   .ob-options-area .ob-option[data-internal-value="seongsu"],
   .ob-options-time .ob-option {
     min-height: 220px;
@@ -7164,6 +7435,7 @@ body {
   .ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"] .ob-option-label,
   .ob-options-area .ob-option[data-internal-value="itaewon_hannam"] .ob-option-label,
   .ob-options-area .ob-option[data-internal-value="anguk_bukchon"] .ob-option-label,
+  .ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-option-label,
   .ob-options-area .ob-option[data-internal-value="seongsu"] .ob-option-label,
   .ob-options-time .ob-option .ob-option-label {
     font-size: 25px;
@@ -7184,8 +7456,7 @@ body {
     height: 134px;
   }
 
-  .ob-options-area .ob-option[data-internal-value="near_me"],
-  .ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] {
+  .ob-options-area .ob-option[data-internal-value="near_me"] {
     min-height: 166px;
     padding: 88px 14px 14px;
   }
