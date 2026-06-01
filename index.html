@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Kandid Spot — One local route, ready to walk</title>
+<title>Kandid Spot - One candid route through Seoul</title>
 <meta name="description" content="Pick your area, time, and mood. Kandid Spot gives you one route from curated local spots in Seoul." />
 <meta name="theme-color" content="#F4F1EA" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -11,363 +11,681 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --paper: #FFFFFF;
-    --bg: #F4F1EA;
-    --ink: #0E0E0C;
-    --muted: #6B6962;
-    --rule: #1A1A18;
-    --blue: #1B3FE0;
-    --pink: #FF3B86;
-    --yellow: #FFD23D;
-    --mint: #6CE6BA;
-    --sans: "Space Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    --serif: "Instrument Serif", "Times New Roman", serif;
-    --mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+    --ks-bg: #F4F1EA;
+    --ks-paper: #FFFFFF;
+    --ks-soft-paper: #FFFDF7;
+    --ks-ink: #0E0E0C;
+    --ks-ink-soft: #6B6962;
+    --ks-rule: #1A1A18;
+    --ks-blue: #1B3FE0;
+    --ks-pink: #FF3B86;
+    --ks-yellow: #FFD23D;
+    --ks-mint: #6CE6BA;
+    --ks-line: 3px solid var(--ks-rule);
+    --ks-shadow: 10px 10px 0 var(--ks-rule);
+    --ks-sans: "Space Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --ks-serif: "Instrument Serif", "Times New Roman", serif;
+    --ks-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
   }
 
-  *, *::before, *::after { box-sizing: border-box; }
-  html, body { min-height: 100%; }
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    min-height: 100%;
+  }
+
   body {
     margin: 0;
-    background: var(--bg);
-    color: var(--ink);
-    font-family: var(--sans);
+    background:
+      linear-gradient(rgba(14, 14, 12, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(14, 14, 12, 0.045) 1px, transparent 1px),
+      var(--ks-bg);
+    background-size: 28px 28px;
+    color: var(--ks-ink);
+    font-family: var(--ks-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
-  a { color: inherit; text-decoration: none; }
-  a:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
-
-  .sheet {
-    min-height: calc(100vh - 48px);
-    max-width: 1380px;
-    margin: 24px auto;
-    background: var(--paper);
-    border: 1.5px solid var(--rule);
-    border-radius: 28px;
-    overflow: hidden;
-    box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.28);
+  a {
+    color: inherit;
+    text-decoration: none;
   }
 
-  .topbar {
-    height: 72px;
-    padding: 0 28px;
-    border-bottom: 1.5px solid var(--rule);
+  a:focus-visible {
+    outline: 2px solid var(--ks-blue);
+    outline-offset: 3px;
+  }
+
+  .ks-stage {
+    position: relative;
+    min-height: 100vh;
+    padding: 24px;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .ks-stage::before,
+  .ks-stage::after {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    border: var(--ks-line);
+    background: var(--ks-yellow);
+    pointer-events: none;
+  }
+
+  .ks-stage::before {
+    width: 138px;
+    height: 138px;
+    right: 4vw;
+    top: 7vh;
+    border-radius: 50%;
+    box-shadow: 6px 6px 0 var(--ks-rule);
+  }
+
+  .ks-stage::after {
+    width: 92px;
+    height: 92px;
+    left: 4vw;
+    bottom: 8vh;
+    transform: rotate(12deg);
+    background: var(--ks-pink);
+    box-shadow: 6px 6px 0 var(--ks-rule);
+  }
+
+  .ks-sheet {
+    position: relative;
+    z-index: 1;
+    min-height: calc(100vh - 48px);
+    max-width: 1380px;
+    margin: 0 auto;
+    background: var(--ks-paper);
+    border: var(--ks-line);
+    border-radius: 28px;
+    box-shadow: var(--ks-shadow);
+    overflow: hidden;
+  }
+
+  .ks-topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 18px;
+    min-height: 76px;
+    padding: 18px 28px;
+    border-bottom: var(--ks-line);
+    background: var(--ks-soft-paper);
   }
 
-  .brand {
-    color: var(--blue);
+  .ks-logo {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 2px;
+    color: var(--ks-blue);
     font-size: 22px;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
   }
 
-  .tag {
-    padding: 5px 9px;
-    background: var(--yellow);
-    border: 1.5px solid var(--rule);
-    border-radius: 7px;
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
+  .ks-logo-bracket {
+    color: var(--ks-ink);
+    font-weight: 500;
   }
 
-  .nav {
+  .ks-topbar-left,
+  .ks-topbar-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
   }
 
-  .nav-pill {
-    padding: 8px 14px;
-    border: 1.5px solid var(--rule);
+  .ks-tag-mono,
+  .ks-nav-item,
+  .ks-cta,
+  .ks-circled-cta,
+  .ks-hero-meta,
+  .ks-tile-num,
+  .ks-tile-cap,
+  .ks-hero-anno,
+  .ks-bottom-strip {
+    font-family: var(--ks-mono);
+    letter-spacing: 0;
+  }
+
+  .ks-tag-mono {
+    padding: 5px 9px;
+    border: var(--ks-line);
+    border-radius: 7px;
+    background: var(--ks-yellow);
+    color: var(--ks-ink);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    box-shadow: 3px 3px 0 var(--ks-rule);
+  }
+
+  .ks-nav-item {
+    padding: 9px 15px;
+    border: var(--ks-line);
     border-radius: 999px;
-    font-family: var(--mono);
+    background: var(--ks-paper);
+    color: var(--ks-ink);
     font-size: 12px;
+    font-weight: 800;
     text-transform: lowercase;
+    box-shadow: 3px 3px 0 var(--ks-rule);
   }
 
-  .nav-dot {
-    width: 34px;
-    height: 34px;
-    border-radius: 999px;
-    background: var(--ink);
-    color: var(--paper);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--mono);
-    font-size: 12px;
-    text-transform: lowercase;
+  .ks-nav-item.primary {
+    background: var(--ks-ink);
+    color: var(--ks-paper);
   }
 
-  .hero {
+  .ks-nav-item:hover,
+  .ks-cta:hover {
+    background: var(--ks-blue);
+    color: var(--ks-paper);
+  }
+
+  .ks-hero {
+    position: relative;
+    min-height: 720px;
+    padding-bottom: 38px;
+  }
+
+  .ks-hero-grid {
     display: grid;
-    grid-template-columns: 1.05fr 1fr;
-    min-height: calc(100vh - 122px);
+    grid-template-columns: minmax(0, 1.1fr) minmax(420px, 0.9fr);
+    min-height: 720px;
   }
 
-  .hero-copy {
-    padding: 52px;
+  .ks-hero-left {
+    position: relative;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    padding: 58px 48px 58px 52px;
   }
 
-  .eyebrow {
+  .ks-hero-eyebrow {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     margin-bottom: 36px;
-    color: var(--muted);
-    font-family: var(--mono);
+    color: var(--ks-ink-soft);
+    font-family: var(--ks-mono);
     font-size: 11px;
-    letter-spacing: 0.11em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
-  .eyebrow::after {
-    content: "";
-    width: 56px;
-    border-top: 1.5px solid var(--rule);
+  .ks-hero-eyebrow-rule {
+    flex: 0 0 56px;
+    border-top: 2px solid var(--ks-rule);
   }
 
-  h1 {
+  .ks-hero-headline {
     max-width: 760px;
     margin: 0;
-    font-size: clamp(64px, 8vw, 118px);
+    color: var(--ks-ink);
+    font-size: min(72px, 8vw);
     font-weight: 700;
-    letter-spacing: -0.055em;
-    line-height: 0.92;
+    letter-spacing: 0;
+    line-height: 0.96;
   }
 
-  .serif {
-    color: var(--ink);
-    font-family: var(--serif);
+  .ks-hero-headline .italic {
+    font-family: var(--ks-serif);
     font-style: italic;
     font-weight: 400;
-    letter-spacing: -0.025em;
   }
 
-  .blue { color: var(--blue); }
-
-  .lead {
-    max-width: 520px;
-    margin: 32px 0 0;
-    color: var(--ink);
-    font-size: 17px;
-    line-height: 1.55;
+  .ks-hero-headline .accent {
+    position: relative;
+    display: inline-block;
+    color: var(--ks-blue);
   }
 
-  .lead em {
-    color: var(--blue);
-    font-family: var(--serif);
-    font-size: 1.1em;
+  .ks-hero-headline .accent::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0.08em;
+    left: 0;
+    height: 0.08em;
+    background: var(--ks-blue);
   }
 
-  .cta-row {
+  .ks-hero-lead {
+    max-width: 560px;
+    margin: 28px 0 0;
+    color: var(--ks-ink);
+    font-size: 18px;
+    line-height: 1.5;
+  }
+
+  .ks-hero-lead em {
+    color: var(--ks-blue);
+    font-family: var(--ks-serif);
+    font-size: 1.12em;
+  }
+
+  .ks-hero-ctrow {
     display: flex;
     align-items: center;
-    gap: 24px;
-    margin-top: 40px;
+    gap: 18px;
+    margin-top: 38px;
   }
 
-  .cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 16px;
-    padding: 16px 20px 16px 26px;
-    background: var(--ink);
-    border: 1.5px solid var(--rule);
-    border-radius: 999px;
-    color: var(--paper);
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: lowercase;
-  }
-
-  .cta:hover {
-    background: var(--blue);
-  }
-
-  .cta-mark {
-    width: 26px;
-    height: 26px;
-    border-radius: 999px;
-    background: var(--paper);
-    color: var(--ink);
+  .ks-cta,
+  .ks-circled-cta {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    border: var(--ks-line);
+    color: var(--ks-ink);
+    font-size: 13px;
+    font-weight: 900;
+    text-transform: lowercase;
+    box-shadow: 5px 5px 0 var(--ks-rule);
   }
 
-  .how {
-    color: var(--muted);
-    font-family: var(--mono);
+  .ks-cta {
+    gap: 16px;
+    padding: 16px 20px 16px 26px;
+    border-radius: 999px;
+    background: var(--ks-ink);
+    color: var(--ks-paper);
+  }
+
+  .ks-cta-arrow {
+    display: inline-grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--ks-paper);
+    color: var(--ks-ink);
+  }
+
+  .ks-circled-cta {
+    min-width: 102px;
+    min-height: 102px;
+    padding: 18px;
+    border-radius: 50%;
+    background: var(--ks-yellow);
+    text-align: center;
+    transform: rotate(-7deg);
+  }
+
+  .ks-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-top: 34px;
+    color: var(--ks-ink-soft);
     font-size: 12px;
-    letter-spacing: 0.03em;
+    font-weight: 700;
     text-transform: lowercase;
   }
 
-  .collage {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border-left: 1.5px solid var(--rule);
+  .ks-hero-meta .result {
+    color: var(--ks-blue);
   }
 
-  .tile {
+  .ks-hero-right {
     position: relative;
-    min-height: 220px;
-    border-bottom: 1.5px solid var(--rule);
-    border-right: 1.5px solid var(--rule);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1.1fr 0.9fr;
+    gap: 18px;
+    padding: 42px 42px 80px 18px;
+    border-left: var(--ks-line);
+    background:
+      linear-gradient(rgba(14, 14, 12, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(14, 14, 12, 0.04) 1px, transparent 1px),
+      #F0E6D4;
+    background-size: 24px 24px;
+  }
+
+  .ks-hero-tile {
+    position: relative;
+    min-height: 210px;
+    border: var(--ks-line);
+    border-radius: 10px;
+    background: var(--ks-paper);
+    box-shadow: 7px 7px 0 var(--ks-rule);
     overflow: hidden;
   }
 
-  .tile:nth-child(2n) { border-right: 0; }
-  .tile:nth-last-child(-n + 2) { border-bottom: 0; }
-
-  .tile::before {
-    content: attr(data-num);
-    position: absolute;
-    top: 18px;
-    left: 18px;
-    z-index: 1;
-    padding: 4px 8px;
-    background: var(--paper);
-    border: 1.5px solid var(--rule);
-    border-radius: 5px;
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 600;
+  .ks-tile-1 {
+    grid-row: span 2;
+    transform: rotate(-1.5deg);
   }
 
-  .tile-label {
+  .ks-tile-2 {
+    transform: rotate(2deg);
+  }
+
+  .ks-tile-3 {
+    transform: rotate(-2deg);
+  }
+
+  .ks-tile-4 {
+    grid-column: 1 / -1;
+    min-height: 150px;
+    transform: rotate(1deg);
+  }
+
+  .ks-hero-tile img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: inherit;
+    object-fit: cover;
+  }
+
+  .ks-tile-num,
+  .ks-tile-cap {
     position: absolute;
-    left: 28px;
-    bottom: 28px;
-    max-width: 150px;
-    font-family: var(--mono);
-    font-size: 12px;
-    line-height: 1.25;
-    letter-spacing: 0.05em;
+    z-index: 2;
+    border: 2px solid var(--ks-rule);
+    background: var(--ks-paper);
+    color: var(--ks-ink);
+    font-weight: 900;
+  }
+
+  .ks-tile-num {
+    top: 14px;
+    left: 14px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+  }
+
+  .ks-tile-cap {
+    right: 14px;
+    bottom: 14px;
+    max-width: 160px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    font-size: 11px;
+    line-height: 1.2;
     text-transform: lowercase;
   }
 
-  .stripe-pink {
-    background:
-      repeating-linear-gradient(45deg, rgba(255, 59, 134, 0.18) 0 9px, rgba(255, 59, 134, 0.38) 9px 18px),
-      #FFE4EE;
-  }
-
-  .blue-tile {
-    background: var(--blue);
-    color: var(--paper);
-  }
-
-  .stripe-yellow {
-    background:
-      repeating-linear-gradient(45deg, rgba(255, 210, 61, 0.42) 0 9px, rgba(255, 210, 61, 0.68) 9px 18px),
-      #FFF1A6;
-  }
-
-  .black-tile {
-    background: var(--ink);
-    color: var(--paper);
+  .ks-hero-anno {
+    position: absolute;
+    right: 42px;
+    bottom: 42px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    text-align: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border: var(--ks-line);
+    border-radius: 999px;
+    background: var(--ks-yellow);
+    color: var(--ks-ink);
+    font-size: 12px;
+    font-weight: 900;
+    box-shadow: 4px 4px 0 var(--ks-rule);
   }
 
-  .xmark {
-    font-size: 66px;
-    font-weight: 700;
-    line-height: 1;
+  .ks-hero-anno-line {
+    width: 38px;
+    border-top: 2px solid var(--ks-rule);
   }
 
-  .caption {
-    margin-top: 16px;
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+  .ks-bottom-strip {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    height: 38px;
+    padding: 0 28px;
+    background: var(--ks-blue);
+    color: var(--ks-paper);
+    font-size: 12px;
+    font-weight: 800;
   }
 
-  @media (max-width: 900px) {
-    .sheet { margin: 0; min-height: 100vh; border: 0; border-radius: 0; }
-    .hero { grid-template-columns: 1fr; }
-    .collage { min-height: 420px; border-left: 0; border-top: 1.5px solid var(--rule); }
-    .hero-copy { padding: 44px 28px; }
-    h1 { font-size: clamp(56px, 15vw, 92px); }
+  .ks-bottom-strip .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ks-paper);
+    opacity: 0.72;
   }
 
-  @media (max-width: 560px) {
-    .topbar { height: auto; padding: 16px; align-items: flex-start; }
-    .brand { font-size: 19px; }
-    .tag, .nav-pill { display: none; }
-    .hero-copy { padding: 36px 20px; }
-    .lead { font-size: 15px; }
-    .cta-row { align-items: stretch; flex-direction: column; gap: 14px; }
-    .cta { justify-content: space-between; width: 100%; }
-    .collage { grid-template-columns: 1fr; }
-    .tile { min-height: 170px; border-right: 0; }
-    .tile:nth-last-child(-n + 2) { border-bottom: 1.5px solid var(--rule); }
-    .tile:last-child { border-bottom: 0; }
+  .ks-bottom-strip .vol {
+    margin-left: auto;
+    opacity: 0.72;
+  }
+
+  @media (max-width: 980px) {
+    .ks-stage {
+      padding: 0;
+    }
+
+    .ks-stage::before,
+    .ks-stage::after {
+      display: none;
+    }
+
+    .ks-sheet {
+      min-height: 100vh;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .ks-hero-grid {
+      grid-template-columns: 1fr;
+      min-height: 0;
+    }
+
+    .ks-hero-left {
+      padding: 48px 28px 36px;
+    }
+
+    .ks-hero-right {
+      grid-template-rows: 220px 180px 150px;
+      padding: 24px 28px 82px;
+      border-top: var(--ks-line);
+      border-left: 0;
+    }
+
+    .ks-hero-headline {
+      font-size: clamp(48px, 11vw, 72px);
+    }
+  }
+
+  @media (max-width: 620px) {
+    .ks-topbar {
+      align-items: flex-start;
+      padding: 14px;
+    }
+
+    .ks-tag-mono,
+    .ks-nav-item:not(.primary) {
+      display: none;
+    }
+
+    .ks-logo {
+      font-size: 19px;
+    }
+
+    .ks-hero-left {
+      padding: 36px 18px 28px;
+    }
+
+    .ks-hero-eyebrow {
+      margin-bottom: 24px;
+    }
+
+    .ks-hero-headline {
+      font-size: 42px;
+    }
+
+    .ks-hero-lead {
+      font-size: 16px;
+    }
+
+    .ks-hero-ctrow {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .ks-cta {
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .ks-circled-cta {
+      min-width: 84px;
+      min-height: 84px;
+      align-self: flex-end;
+    }
+
+    .ks-hero-right {
+      grid-template-columns: 1fr;
+      grid-template-rows: repeat(4, 168px);
+      gap: 14px;
+      padding: 18px 18px 86px;
+    }
+
+    .ks-tile-1,
+    .ks-tile-2,
+    .ks-tile-3,
+    .ks-tile-4 {
+      grid-column: auto;
+      grid-row: auto;
+      transform: none;
+    }
+
+    .ks-hero-anno {
+      right: 18px;
+      bottom: 48px;
+      left: 18px;
+      justify-content: center;
+      font-size: 11px;
+    }
+
+    .ks-bottom-strip {
+      gap: 12px;
+      padding: 0 14px;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .ks-bottom-strip .vol {
+      display: none;
+    }
   }
 </style>
 </head>
 <body>
-
-<main class="sheet">
-  <header class="topbar">
-    <a class="brand" href="/app" aria-label="Kandid Spot home">[kandid.spot]</a>
-    <span class="tag">SEOUL · V2026</span>
-    <nav class="nav" aria-label="Prototype navigation">
-      <a class="nav-pill" href="/app">try route</a>
-    </nav>
-  </header>
-
-  <section class="hero">
-    <div class="hero-copy">
-      <div class="eyebrow">Kandid Spot · Vol. 01 · Seoul</div>
-      <h1>
-        One <span class="serif">candid</span><br />
-        local <span class="blue">route</span>,<br />
-        not a top-ten list.
-      </h1>
-      <p class="lead">
-        Tell us where you are, how much time you've got, and what feels right.
-        We hand back <em>one</em> route worth walking.
-      </p>
-      <div class="cta-row">
-        <a class="cta" href="/app" data-cta="start">
-          start the route <span class="cta-mark" aria-hidden="true">→</span>
+<main class="ks-stage">
+  <section class="ks-sheet" aria-label="Kandid Spot landing">
+    <header class="ks-topbar">
+      <div class="ks-topbar-left">
+        <a class="ks-logo" href="/app" aria-label="Kandid Spot app">
+          <span class="ks-logo-bracket">[</span>kandid.spot<span class="ks-logo-bracket">]</span>
         </a>
-        <span class="how">area · time · mood · your route</span>
+        <span class="ks-tag-mono">seoul · v2026</span>
       </div>
-    </div>
+      <nav class="ks-topbar-right" aria-label="Kandid Spot navigation">
+        <a class="ks-nav-item" href="/app">saved</a>
+        <a class="ks-nav-item primary" href="/app">try route</a>
+      </nav>
+    </header>
 
-    <div class="collage" aria-hidden="true">
-      <div class="tile stripe-pink" data-num="01"><span class="tile-label">backstreet meal</span></div>
-      <div class="tile blue-tile" data-num="02"><span class="tile-label">walking</span></div>
-      <div class="tile stripe-yellow" data-num="03"><span class="tile-label">small cafe</span></div>
-      <div class="tile black-tile" data-num="04">
-        <div>
-          <div class="xmark">×</div>
-          <div class="caption">candid / not generic</div>
+    <section class="ks-hero">
+      <div class="ks-hero-grid">
+        <div class="ks-hero-left">
+          <div class="ks-hero-eyebrow">
+            <span>kandid.spot</span>
+            <span class="ks-hero-eyebrow-rule"></span>
+            <span>vol. 01 / seoul</span>
+          </div>
+
+          <h1 class="ks-hero-headline">
+            One <span class="italic">candid</span> route<br />
+            through <span class="accent">Seoul</span>.
+          </h1>
+
+          <p class="ks-hero-lead">
+            Tell us where you are, how much time you've got, and what feels right.
+            We hand back <em>one</em> route worth walking - picked by people who
+            actually live here.
+          </p>
+
+          <div class="ks-hero-ctrow">
+            <a class="ks-cta" href="/app" data-cta="start">
+              start the route
+              <span class="ks-cta-arrow" aria-hidden="true">→</span>
+            </a>
+            <a class="ks-circled-cta" href="/app">how it works</a>
+          </div>
+
+          <div class="ks-hero-meta" aria-label="Route flow">
+            <span>area</span><span>·</span>
+            <span>time</span><span>·</span>
+            <span>mood</span><span>·</span>
+            <span class="result">your route</span>
+          </div>
+        </div>
+
+        <div class="ks-hero-right" aria-hidden="true">
+          <figure class="ks-hero-tile ks-tile-1">
+            <img src="/v2-refined-main-app/assets/design-v2/landing-meal.jpg" alt="" loading="eager" />
+            <span class="ks-tile-num">01</span>
+            <span class="ks-tile-cap">backstreet meal</span>
+          </figure>
+          <figure class="ks-hero-tile ks-tile-2">
+            <img src="/v2-refined-main-app/assets/design-v2/landing-walk.jpg" alt="" loading="lazy" />
+            <span class="ks-tile-num">02</span>
+            <span class="ks-tile-cap">a walk between</span>
+          </figure>
+          <figure class="ks-hero-tile ks-tile-3">
+            <img src="/v2-refined-main-app/assets/design-v2/landing-quiet.jpg" alt="" loading="lazy" />
+            <span class="ks-tile-num">03</span>
+            <span class="ks-tile-cap">a quiet stop</span>
+          </figure>
+          <figure class="ks-hero-tile ks-tile-4">
+            <img src="/v2-refined-main-app/assets/design-v2/landing-end.jpg" alt="" loading="lazy" />
+            <span class="ks-tile-num">04</span>
+            <span class="ks-tile-cap">ending</span>
+          </figure>
+
+          <span class="ks-hero-anno">
+            <span class="ks-hero-anno-line"></span>
+            chosen by a local · 18 min walk
+          </span>
         </div>
       </div>
-    </div>
+
+      <div class="ks-bottom-strip" aria-hidden="true">
+        <span>kandid.spot</span>
+        <span class="dot"></span>
+        <span>seoul / curated by locals</span>
+        <span class="dot"></span>
+        <span>not a top-10 list</span>
+        <span class="vol">vol. 01 · 2026</span>
+      </div>
+    </section>
   </section>
 </main>
-
 </body>
 </html>

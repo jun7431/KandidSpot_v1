@@ -6127,3 +6127,61 @@ body {
     box-shadow: 4px 4px 0 var(--ks-v2-rule);
   }
 }
+
+/* =================================================================
+   Design v2 onboarding photo-card cleanup
+   Keep photos unobstructed. Preserve non-photo/start-time icon cards.
+   ================================================================= */
+.ob-options-area .ob-option[data-internal-value="myeongdong_euljiro"] .ob-emoji,
+.ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"] .ob-emoji,
+.ob-options-area .ob-option[data-internal-value="itaewon_hannam"] .ob-emoji,
+.ob-options-area .ob-option[data-internal-value="anguk_bukchon"] .ob-emoji,
+.ob-options-area .ob-option[data-internal-value="seongsu"] .ob-emoji,
+.ob-options-time .ob-option .ob-emoji,
+.ob-options-mood .ob-option .ob-emoji {
+  display: none;
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"]::before {
+  background:
+    radial-gradient(circle at 24% 30%, rgba(27, 63, 224, 0.28) 0 12px, transparent 13px),
+    radial-gradient(circle at 76% 62%, rgba(255, 59, 134, 0.24) 0 10px, transparent 11px),
+    repeating-linear-gradient(45deg, rgba(14, 14, 12, 0.08) 0 7px, transparent 7px 15px),
+    linear-gradient(135deg, #D8F6E4, #FFFDF7);
+}
+
+.ob-options-area .ob-option[data-internal-value="near_me"] .ob-emoji,
+.ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-emoji,
+.ob-options-start .ob-option .ob-emoji {
+  display: grid;
+}
+
+.ob-options-time .ob-option,
+.ob-options-mood .ob-option {
+  padding-top: 136px;
+}
+
+.ob-options-time .ob-option::after,
+.ob-options-mood .ob-option::after,
+.ob-options-area .ob-option[data-internal-value="myeongdong_euljiro"]::after,
+.ob-options-area .ob-option[data-internal-value="hongdae_yeonnam"]::after,
+.ob-options-area .ob-option[data-internal-value="itaewon_hannam"]::after,
+.ob-options-area .ob-option[data-internal-value="anguk_bukchon"]::after,
+.ob-options-area .ob-option[data-internal-value="seongsu"]::after {
+  top: 18px;
+  right: 18px;
+  left: auto;
+}
+
+@media (max-width: 720px) {
+  .ob-options-time .ob-option,
+  .ob-options-mood .ob-option {
+    padding-top: 88px;
+  }
+
+  .ob-options-area .ob-option[data-internal-value="near_me"] .ob-emoji,
+  .ob-options-area .ob-option[data-internal-value="gangnam_sinsa_apgujeong"] .ob-emoji,
+  .ob-options-start .ob-option .ob-emoji {
+    display: grid;
+  }
+}
