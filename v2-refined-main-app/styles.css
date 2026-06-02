@@ -8460,3 +8460,30 @@ body {
     padding: 8px 12px;
   }
 }
+
+/* Targeted mobile bug fixes: keep result actions non-sticky and prevent refine clipping. */
+@media (max-width: 720px) {
+  .split .action-bar {
+    position: static;
+    bottom: auto;
+    z-index: auto;
+    align-items: center;
+    flex: 0 0 auto;
+    grid-auto-rows: minmax(40px, auto);
+    min-height: 0;
+    height: auto;
+    overflow: visible;
+  }
+
+  .split .action-bar .act-btn {
+    align-self: center;
+    min-height: 40px;
+    height: auto;
+  }
+
+  .refine-section {
+    margin-left: 6px;
+    margin-right: 0;
+    padding-left: 2px;
+  }
+}

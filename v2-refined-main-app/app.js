@@ -646,6 +646,7 @@ const AREA_KEY_ALIASES = {
 
 const NEAR_ME_FALLBACK_AREA_KEY = 'hongdae_yeonnam';
 const NEAR_ME_FALLBACK_MESSAGE = 'Location unavailable - using Hongdae as a fallback area.';
+const NEAR_ME_NEAREST_CANDIDATE_LIMIT = 24;
 
 const MIRO_CATEGORY_LABELS = {
   eat: 'Food',
@@ -1008,6 +1009,7 @@ function getAreaConfig(routeKey, runtimeContext = {}) {
     : getAreaRadiusM(base);
   return {
     ...base,
+    routeKey,
     label: runtimeContext.label || base.label,
     mapLabel: runtimeContext.mapLabel || base.mapLabel,
     center,
@@ -1070,6 +1072,18 @@ function normalizeCoords(coords) {
     lng: Number(coords.lng),
   };
   return hasValidCoords(point) ? point : null;
+}
+
+function getCachedNearMeCoords() {
+  return normalizeCoords(state.nearMeCoords || nearMeState.coords);
+}
+
+function hasActualNearMeRuntime(routeKey, runtimeContext = {}) {
+  return (
+    routeKey === 'near_me'
+    && hasValidCoords(runtimeContext.center)
+    && !runtimeContext.nearMeFallbackUsed
+  );
 }
 
 function setNormalAreaRuntimeState(routeKey) {
@@ -1159,7 +1173,7 @@ function getCurrentBrowserLocation() {
 async function getRouteRuntimeContext(routeKey) {
   if (routeKey !== 'near_me') return setNormalAreaRuntimeState(routeKey);
 
-  const cachedCoords = normalizeCoords(state.nearMeCoords || nearMeState.coords);
+  const cachedCoords = getCachedNearMeCoords();
   if (cachedCoords) {
     return setNearMeRuntimeState(cachedCoords);
   }
@@ -1246,6 +1260,39 @@ function getMobilityAwareCandidatePool(candidates, exactMatches, context) {
   return exactMatches.length ? exactMatches : candidates;
 }
 
+function isActualNearMeAreaConfig(areaConfig) {
+  return (
+    areaConfig?.routeKey === 'near_me'
+    && hasValidCoords(areaConfig.center)
+    && !areaConfig.nearMeFallbackUsed
+  );
+}
+
+function sortPlacesByDistanceFromCenter(places, center) {
+  if (!hasValidCoords(center)) return places.slice();
+  return places.slice().sort((left, right) => (
+    distanceKm(left, center) - distanceKm(right, center)
+  ));
+}
+
+function expandNearMeCandidatePool(currentCandidates, usablePlaces, areaConfig, minimumCount) {
+  const current = sortPlacesByDistanceFromCenter(
+    dedupeRuntimePlaces(currentCandidates),
+    areaConfig.center
+  );
+  if (!isActualNearMeAreaConfig(areaConfig) || current.length >= minimumCount) return current;
+
+  const nearestLimit = Math.max(
+    minimumCount,
+    Math.min(NEAR_ME_NEAREST_CANDIDATE_LIMIT, getTimeConfig(state.time).maxStops * 6)
+  );
+  const nearest = sortPlacesByDistanceFromCenter(usablePlaces, areaConfig.center).slice(0, nearestLimit);
+  return sortPlacesByDistanceFromCenter(
+    dedupeRuntimePlaces([...current, ...nearest]),
+    areaConfig.center
+  ).slice(0, nearestLimit);
+}
+
 function getAreaCandidates(places, areaConfig) {
   const usablePlaces = places.filter(place => place.name && hasValidCoords(place));
   if (!hasValidCoords(areaConfig.center) && !areaConfig.terms.length) return [];
@@ -1254,6 +1301,9 @@ function getAreaCandidates(places, areaConfig) {
     distanceKm(place, areaConfig.center) <= areaConfig.radiusKm
   ));
   const merged = dedupeRuntimePlaces([...addressMatches, ...nearbyMatches]);
+  if (isActualNearMeAreaConfig(areaConfig)) {
+    return expandNearMeCandidatePool(merged, usablePlaces, areaConfig, getTimeConfig(state.time).maxStops);
+  }
   return merged.length ? merged : usablePlaces;
 }
 
@@ -2235,10 +2285,29 @@ function getDataDrivenCandidates(places, areaConfig, timeConfig) {
     place,
     distanceM: getPlaceDistanceM(place, areaConfig.center),
   }));
+  const minimumCandidateCount = isActualNearMeAreaConfig(areaConfig)
+    ? Math.max(timeConfig.minStops, timeConfig.maxStops)
+    : timeConfig.minStops;
   let matches = withDistance.filter(item => item.distanceM <= radiusM);
 
-  if (matches.length < timeConfig.minStops) {
-    matches = withDistance.filter(item => item.distanceM <= radiusM * 1.5);
+  const expansionMultipliers = isActualNearMeAreaConfig(areaConfig)
+    ? [1.5, 2.5, 4, 8]
+    : [1.5];
+
+  for (const multiplier of expansionMultipliers) {
+    if (matches.length >= minimumCandidateCount) break;
+    matches = withDistance.filter(item => item.distanceM <= radiusM * multiplier);
+  }
+
+  if (isActualNearMeAreaConfig(areaConfig) && matches.length < minimumCandidateCount) {
+    const nearestLimit = Math.max(
+      minimumCandidateCount,
+      Math.min(NEAR_ME_NEAREST_CANDIDATE_LIMIT, timeConfig.maxStops * 6)
+    );
+    matches = withDistance
+      .filter(item => Number.isFinite(item.distanceM))
+      .sort((left, right) => left.distanceM - right.distanceM)
+      .slice(0, nearestLimit);
   }
 
   return matches
@@ -3021,6 +3090,11 @@ function getStopsWithCoords() {
 }
 
 function buildMockFallbackRoute(routeKey, notice = '', runtimeContext = {}) {
+  if (hasActualNearMeRuntime(routeKey, runtimeContext)) {
+    const message = notice || 'We could not find enough saved places near your current location yet. Try a broader duration, mood, or another area.';
+    return buildEmptyRealRoute(routeKey, message, runtimeContext);
+  }
+
   const mockRouteKey = MOCK_ROUTE_KEY_ALIASES[routeKey] || routeKey;
   const fallback = ROUTES[mockRouteKey] || ROUTES.hongdae;
   const timeConfig = getTimeConfig(state.time);
@@ -3046,8 +3120,8 @@ function buildMockFallbackRoute(routeKey, notice = '', runtimeContext = {}) {
   };
 }
 
-function buildEmptyRealRoute(routeKey, message) {
-  const areaConfig = getAreaConfig(routeKey);
+function buildEmptyRealRoute(routeKey, message, runtimeContext = {}) {
+  const areaConfig = getAreaConfig(routeKey, runtimeContext);
   return {
     label: areaConfig.label,
     mapLabel: areaConfig.mapLabel,
@@ -3075,6 +3149,19 @@ function resolveRouteForCurrentSelection(routeKey, refinementInput = getActiveRe
   const realRoute = buildCuratedRoute(routeKey, state.mood, refinementKeys, runtimeContext, options);
   if (realRoute) {
     return realRoute;
+  }
+
+  if (hasActualNearMeRuntime(routeKey, runtimeContext)) {
+    debugRouteRecommendation('fallback_route_blocked', {
+      routeKey,
+      refinementKeys,
+      reason: 'near_me_coords_present',
+    });
+    return buildEmptyRealRoute(
+      routeKey,
+      'We could not find enough saved places near your current location yet. Try a broader duration, mood, or another area.',
+      runtimeContext
+    );
   }
 
   if (MOCK_ROUTES_ENABLED) {
@@ -5372,9 +5459,14 @@ function updateRefineSummary() {
 
 function getCurrentAreaCandidates() {
   const routeKey = getRouteKey(state.area);
-  const runtimeContext = routeKey === 'near_me' && hasValidCoords(state.effectiveOrigin)
-    ? { center: state.effectiveOrigin }
-    : {};
+  const cachedCoords = routeKey === 'near_me' ? getCachedNearMeCoords() : null;
+  const runtimeContext = routeKey === 'near_me' && cachedCoords
+    ? { center: cachedCoords }
+    : (
+      routeKey === 'near_me' && hasValidCoords(state.effectiveOrigin)
+        ? { center: state.effectiveOrigin, nearMeFallbackUsed: Boolean(state.nearMeFallbackUsed) }
+        : {}
+    );
   return getAreaCandidates(curatedPlaceState.places, getAreaConfig(routeKey, runtimeContext));
 }
 
