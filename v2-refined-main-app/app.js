@@ -3195,7 +3195,8 @@ function buildEmptyRealRoute(routeKey, message, runtimeContext = {}) {
 
 function resolveRouteForCurrentSelection(routeKey, refinementInput = getActiveRefinementKeys(), runtimeContext = {}, options = {}) {
   const refinementKeys = normalizeRefinementKeys(refinementInput);
-  const realRoute = buildCuratedRoute(routeKey, state.mood, refinementKeys, runtimeContext, options);
+  const mood = options.moodKey || state.mood;
+  const realRoute = buildCuratedRoute(routeKey, mood, refinementKeys, runtimeContext, options);
   if (realRoute) {
     return realRoute;
   }
@@ -3236,6 +3237,79 @@ function resolveRouteForCurrentSelection(routeKey, refinementInput = getActiveRe
     reason: runtimeContext.locationError ? 'runtime_context_error' : 'not_enough_matching_places',
   });
   return buildMockFallbackRoute(routeKey, notice, runtimeContext);
+}
+
+function normalizeRouteBuildInput(input = {}) {
+  const rawStartTime = input.startTime && typeof input.startTime === 'object'
+    ? input.startTime
+    : {};
+  const areaKey = getRouteKey(input.areaKey || input.area || state.area);
+  const timeKey = normalizeTimeKey(input.timeKey || input.time || state.time);
+  const moodKey = normalizeMoodKeys(input.moodKey || input.mood || state.mood)[0] || 'local_food';
+  const startTime = {
+    period: normalizeStartTimePeriod(rawStartTime.period || input.startTimePeriod || state.startTimePeriod),
+    customStartTime: getCustomStartTimeValue(
+      rawStartTime.customStartTime ?? input.customStartTime ?? state.customStartTime
+    ),
+  };
+  const runtimeContext = input.runtimeContext || {};
+  const coords = normalizeCoords(
+    input.coords ||
+    runtimeContext.center ||
+    (areaKey === 'near_me' ? getCachedNearMeCoords() : AREA_FILTERS[areaKey]?.center)
+  );
+  const places = Array.isArray(input.places) ? input.places : curatedPlaceState.places;
+  const previousRoute = input.previousRoute || null;
+
+  return {
+    ...input,
+    areaKey,
+    timeKey,
+    moodKey,
+    startTime,
+    refinements: normalizeRefinementKeys(input.refinements ?? input.refinementInput ?? getActiveRefinementKeys()),
+    coords,
+    places,
+    previousRoute,
+    runtimeContext,
+  };
+}
+
+function buildRouteForInputs(input = {}) {
+  const routeInput = normalizeRouteBuildInput(input);
+  const options = {
+    ...(routeInput.options || {}),
+    coords: routeInput.coords,
+    moodKey: routeInput.moodKey,
+    places: routeInput.places,
+    routePreferences: routeInput.routePreferences || null,
+    startTime: routeInput.startTime,
+    timeKey: routeInput.timeKey,
+  };
+
+  if (routeInput.previousRoute) {
+    options.previousRoute = routeInput.previousRoute;
+  }
+  if (routeInput.previousRouteOverlapMultiplier !== undefined) {
+    options.previousRouteOverlapMultiplier = routeInput.previousRouteOverlapMultiplier;
+  }
+
+  if (routeInput.allowFallback === false) {
+    return buildCuratedRoute(
+      routeInput.areaKey,
+      routeInput.moodKey,
+      routeInput.refinements,
+      routeInput.runtimeContext,
+      options
+    );
+  }
+
+  return resolveRouteForCurrentSelection(
+    routeInput.areaKey,
+    routeInput.refinements,
+    routeInput.runtimeContext,
+    options
+  );
 }
 
 const AREA_KEY_BY_LABEL = Object.values(ROUTES).reduce((acc, route) => {
@@ -3753,12 +3827,22 @@ async function applyRouteForCurrentSelection() {
   state.routeKey = getRouteKey(state.area);
   const runtimeContext = await getRouteRuntimeContext(state.routeKey);
   const routePreferences = getOptionalRoutePreferences();
-  applyResolvedRoute(resolveRouteForCurrentSelection(
-    state.routeKey,
-    getActiveRefinementKeys(),
+  const routeInput = normalizeRouteBuildInput({
+    areaKey: state.routeKey,
+    timeKey: state.time,
+    moodKey: state.mood,
+    startTime: {
+      period: state.startTimePeriod,
+      customStartTime: state.customStartTime,
+    },
+    refinements: getActiveRefinementKeys(),
+    coords: runtimeContext.center,
+    places: curatedPlaceState.places,
+    previousRoute: null,
     runtimeContext,
-    { routePreferences }
-  ));
+    routePreferences,
+  });
+  applyResolvedRoute(buildRouteForInputs(routeInput));
 }
 
 function applyResolvedRoute(route) {
@@ -5543,13 +5627,31 @@ function applyRefinement(key) {
     const runtimeContext = await getRouteRuntimeContext(routeKey);
     const routePreferences = getOptionalRoutePreferences();
     const previousRoute = currentRoute;
+    const routeInput = normalizeRouteBuildInput({
+      areaKey: routeKey,
+      timeKey: state.time,
+      moodKey: state.mood,
+      startTime: {
+        period: state.startTimePeriod,
+        customStartTime: state.customStartTime,
+      },
+      coords: runtimeContext.center,
+      places: curatedPlaceState.places,
+      previousRoute,
+      runtimeContext,
+      routePreferences,
+    });
 
     if (!nextActive.length) {
       state.activeRefinements = [];
       syncRefineChips();
       updateRefineSummary();
       state.routeKey = routeKey;
-      applyResolvedRoute(resolveRouteForCurrentSelection(routeKey, [], runtimeContext, { routePreferences }));
+      applyResolvedRoute(buildRouteForInputs({
+        ...routeInput,
+        refinements: [],
+        previousRoute: null,
+      }));
       const undoText = REFINE_TEXTS[key]?.undo || 'Cleared refinement.';
       showToast(undoText);
       return;
@@ -5563,13 +5665,11 @@ function applyRefinement(key) {
       }
     }
 
-    let refinedRoute = buildCuratedRoute(
-      routeKey,
-      state.mood,
-      nextActive,
-      runtimeContext,
-      { routePreferences, previousRoute }
-    );
+    let refinedRoute = buildRouteForInputs({
+      ...routeInput,
+      refinements: nextActive,
+      allowFallback: false,
+    });
 
     if (!refinedRoute || !refinedRoute.stops.length) {
       showToast('Not enough matching places for that refinement yet.');
@@ -5585,13 +5685,12 @@ function applyRefinement(key) {
       const initialWalking = estimateRouteWalkingMeters(refinedRoute);
       const threshold = Math.max(50, previousWalking * 0.1);
       if (previousWalking > 0 && initialWalking > previousWalking + threshold) {
-        const compactRetry = buildCuratedRoute(
-          routeKey,
-          state.mood,
-          nextActive,
-          runtimeContext,
-          { routePreferences, previousRoute, previousRouteOverlapMultiplier: 0 }
-        );
+        const compactRetry = buildRouteForInputs({
+          ...routeInput,
+          refinements: nextActive,
+          previousRouteOverlapMultiplier: 0,
+          allowFallback: false,
+        });
         if (compactRetry && compactRetry.stops.length) {
           const retryWalking = estimateRouteWalkingMeters(compactRetry);
           if (retryWalking <= initialWalking) {
@@ -5603,13 +5702,12 @@ function applyRefinement(key) {
         identical = previousRoute && isSameStopSet(refinedRoute, previousRoute);
       }
     } else if (identical) {
-      const noveltyRetry = buildCuratedRoute(
-        routeKey,
-        state.mood,
-        nextActive,
-        runtimeContext,
-        { routePreferences, previousRoute, previousRouteOverlapMultiplier: 2 }
-      );
+      const noveltyRetry = buildRouteForInputs({
+        ...routeInput,
+        refinements: nextActive,
+        previousRouteOverlapMultiplier: 2,
+        allowFallback: false,
+      });
       if (noveltyRetry && noveltyRetry.stops.length) {
         refinedRoute = noveltyRetry;
         identical = previousRoute && isSameStopSet(noveltyRetry, previousRoute);
