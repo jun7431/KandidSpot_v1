@@ -8465,6 +8465,8 @@ body {
 @media (max-width: 720px) {
   .split .action-bar {
     position: static;
+    inset: auto;
+    top: auto;
     bottom: auto;
     z-index: auto;
     align-items: center;
@@ -8472,6 +8474,8 @@ body {
     grid-auto-rows: minmax(40px, auto);
     min-height: 0;
     height: auto;
+    max-height: none;
+    padding: 8px;
     overflow: visible;
   }
 
@@ -8479,6 +8483,28 @@ body {
     align-self: center;
     min-height: 40px;
     height: auto;
+  }
+
+  #main-app .builder-row {
+    min-width: 0;
+    overflow: visible;
+  }
+
+  #main-app .builder .chip-scroller {
+    display: flex;
+    flex-wrap: nowrap;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    padding-bottom: 9px;
+  }
+
+  #main-app .builder .chip {
+    flex: 0 0 auto;
   }
 
   .refine-section {

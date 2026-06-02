@@ -542,6 +542,10 @@ const MOOD_REQUIRED_PRIMARY_CATEGORIES = {
   walks_views: ['walk_nature', 'landmark_view'],
 };
 
+const MOOD_CANDIDATE_TEXT_TERMS = {
+  cafes_dessert: ['cafe', 'coffee', 'dessert', 'bakery', 'tea', 'brunch', 'sweet', 'pastry', '카페', '커피', '디저트', '베이커리', '차', '브런치', '빵'],
+};
+
 const MIRO_CATEGORY_TO_PRIMARY_CATEGORY = {
   eat: 'meal',
   cafe: 'cafe',
@@ -973,6 +977,27 @@ function hasAnyPrimaryCategory(places, categories) {
   );
 }
 
+function getMoodCandidatePrimaryCategories(moodContext) {
+  return uniqueStrings([
+    ...(moodContext?.primaryPreferred || []),
+  ]);
+}
+
+function getMoodCandidateTextTerms(moodContext) {
+  return uniqueStrings(
+    (moodContext?.compositionKeys || []).flatMap(key => MOOD_CANDIDATE_TEXT_TERMS[key] || [])
+  );
+}
+
+function placeMatchesMoodCandidate(place, moodContext) {
+  if (!moodContext) return false;
+  const primaryCategories = getMoodCandidatePrimaryCategories(moodContext);
+  if (primaryCategories.includes(getPlacePrimaryCategory(place))) return true;
+
+  const terms = getMoodCandidateTextTerms(moodContext);
+  return terms.length ? textHasAnyTerm(getPlaceSearchText(place), terms) : false;
+}
+
 function getRoutePreferenceScore(place, routePreferences) {
   if (!routePreferences) return 0;
   const primaryCategory = getPlacePrimaryCategory(place);
@@ -1275,7 +1300,7 @@ function sortPlacesByDistanceFromCenter(places, center) {
   ));
 }
 
-function expandNearMeCandidatePool(currentCandidates, usablePlaces, areaConfig, minimumCount) {
+function expandNearMeCandidatePool(currentCandidates, usablePlaces, areaConfig, minimumCount, moodContext = null) {
   const current = sortPlacesByDistanceFromCenter(
     dedupeRuntimePlaces(currentCandidates),
     areaConfig.center
@@ -1286,14 +1311,20 @@ function expandNearMeCandidatePool(currentCandidates, usablePlaces, areaConfig, 
     minimumCount,
     Math.min(NEAR_ME_NEAREST_CANDIDATE_LIMIT, getTimeConfig(state.time).maxStops * 6)
   );
+  const nearestMoodMatches = moodContext
+    ? sortPlacesByDistanceFromCenter(
+      usablePlaces.filter(place => placeMatchesMoodCandidate(place, moodContext)),
+      areaConfig.center
+    ).slice(0, nearestLimit)
+    : [];
   const nearest = sortPlacesByDistanceFromCenter(usablePlaces, areaConfig.center).slice(0, nearestLimit);
   return sortPlacesByDistanceFromCenter(
-    dedupeRuntimePlaces([...current, ...nearest]),
+    dedupeRuntimePlaces([...current, ...nearestMoodMatches, ...nearest]),
     areaConfig.center
-  ).slice(0, nearestLimit);
+  );
 }
 
-function getAreaCandidates(places, areaConfig) {
+function getAreaCandidates(places, areaConfig, moodContext = null) {
   const usablePlaces = places.filter(place => place.name && hasValidCoords(place));
   if (!hasValidCoords(areaConfig.center) && !areaConfig.terms.length) return [];
   const addressMatches = usablePlaces.filter(place => addressMatchesArea(place, areaConfig));
@@ -1302,7 +1333,7 @@ function getAreaCandidates(places, areaConfig) {
   ));
   const merged = dedupeRuntimePlaces([...addressMatches, ...nearbyMatches]);
   if (isActualNearMeAreaConfig(areaConfig)) {
-    return expandNearMeCandidatePool(merged, usablePlaces, areaConfig, getTimeConfig(state.time).maxStops);
+    return expandNearMeCandidatePool(merged, usablePlaces, areaConfig, getTimeConfig(state.time).maxStops, moodContext);
   }
   return merged.length ? merged : usablePlaces;
 }
@@ -2273,7 +2304,7 @@ function debugRouteRecommendation(event, details = {}) {
   console.debug(`[Kandid Spot route] ${event}`, details);
 }
 
-function getDataDrivenCandidates(places, areaConfig, timeConfig) {
+function getDataDrivenCandidates(places, areaConfig, timeConfig, moodContext = null) {
   const usablePlaces = places.filter(place => (
     place.name
     && hasValidCoords(place)
@@ -2297,6 +2328,24 @@ function getDataDrivenCandidates(places, areaConfig, timeConfig) {
   for (const multiplier of expansionMultipliers) {
     if (matches.length >= minimumCandidateCount) break;
     matches = withDistance.filter(item => item.distanceM <= radiusM * multiplier);
+  }
+
+  if (isActualNearMeAreaConfig(areaConfig) && moodContext) {
+    const nearestMoodLimit = Math.max(
+      minimumCandidateCount,
+      Math.min(NEAR_ME_NEAREST_CANDIDATE_LIMIT, timeConfig.maxStops * 6)
+    );
+    const byKey = new Map();
+    const nearestMoodMatches = withDistance
+      .filter(item => placeMatchesMoodCandidate(item.place, moodContext))
+      .sort((left, right) => left.distanceM - right.distanceM)
+      .slice(0, nearestMoodLimit);
+
+    [...nearestMoodMatches, ...matches].forEach(item => {
+      const key = getRuntimePlaceKey(item.place);
+      if (!byKey.has(key)) byKey.set(key, item);
+    });
+    matches = Array.from(byKey.values()).sort((left, right) => left.distanceM - right.distanceM);
   }
 
   if (isActualNearMeAreaConfig(areaConfig) && matches.length < minimumCandidateCount) {
@@ -2598,7 +2647,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementInput = null, runtimeCon
   const startTimeContext = getStartTimeContext();
   const areaConfig = getAreaConfig(routeKey, runtimeContext);
   const routePreferences = options.routePreferences || null;
-  const areaCandidates = getDataDrivenCandidates(places, areaConfig, timeConfig);
+  const areaCandidates = getDataDrivenCandidates(places, areaConfig, timeConfig, moodContext);
   const candidates = filterCandidatesForRefinement(areaCandidates, refinementKeys);
   const previousStopIdentitySet = options.previousRoute
     ? getPreviousRouteStopIdentitySet(options.previousRoute)
@@ -2853,7 +2902,7 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementInput = null, runtime
   const mode = getRouteMode(mood);
   const routePreferences = options.routePreferences || null;
   const template = getRouteTemplate(mode, refinementKeys, routePreferences, startTimeContext);
-  const candidates = filterCandidatesForRefinement(getAreaCandidates(places, areaConfig), refinementKeys);
+  const candidates = filterCandidatesForRefinement(getAreaCandidates(places, areaConfig, moodContext), refinementKeys);
   if (!candidates.length) return null;
 
   const previousStopIdentitySet = options.previousRoute
