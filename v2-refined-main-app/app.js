@@ -421,10 +421,10 @@ AREA_FILTERS.gangnam = AREA_FILTERS.gangnam_sinsa_apgujeong;
 AREA_FILTERS.itaewon = AREA_FILTERS.itaewon_hannam;
 
 const TIME_CONFIG = {
-  time_30_60: { label: '30–60 min', targetMin: 45, minStops: 1, maxStops: 2, nearMeRadiusM: 700 },
+  time_30_60: { label: '30–60 min', targetMin: 45, minStops: 1, maxStops: 1, nearMeRadiusM: 700 },
   time_1_2: { label: '1–2 hours', targetMin: 90, minStops: 2, maxStops: 2, nearMeRadiusM: 1200 },
-  time_2_3: { label: '2–3 hours', targetMin: 150, minStops: 2, maxStops: 3, nearMeRadiusM: 1800 },
-  time_4_6: { label: '4–6 hours', targetMin: 300, minStops: 3, maxStops: 5, nearMeRadiusM: 3000 },
+  time_2_3: { label: '2–3 hours', targetMin: 150, minStops: 3, maxStops: 3, nearMeRadiusM: 1800 },
+  time_4_6: { label: '4–6 hours', targetMin: 300, minStops: 4, maxStops: 4, nearMeRadiusM: 3000 },
 };
 
 const TIME_ALIASES = {
@@ -435,8 +435,11 @@ const TIME_ALIASES = {
   '2–3 hours': 'time_2_3',
   '2-3 hours': 'time_2_3',
   '2 hours': 'time_2_3',
+  '3–4 hours': 'time_2_3',
+  '3-4 hours': 'time_2_3',
   '4–6 hours': 'time_4_6',
   '4-6 hours': 'time_4_6',
+  '6+ hours': 'time_4_6',
 };
 
 const MOOD_CONFIG = {
@@ -640,6 +643,9 @@ const AREA_KEY_ALIASES = {
   gangnam_sinsa_apgujeong: 'gangnam_sinsa_apgujeong',
   near_me: 'near_me',
 };
+
+const NEAR_ME_FALLBACK_AREA_KEY = 'hongdae_yeonnam';
+const NEAR_ME_FALLBACK_MESSAGE = 'Location unavailable - using Hongdae as a fallback area.';
 
 const MIRO_CATEGORY_LABELS = {
   eat: 'Food',
@@ -888,9 +894,13 @@ function uniqueStrings(values) {
   return [...new Set(values.filter(Boolean).map(String))];
 }
 
-function getMoodRequiredPrimaryCategories(moodContext) {
+function getMoodRequiredPrimaryCategories(moodContext, startTimeContext = getStartTimeContext()) {
   const primaryMood = moodContext?.compositionKeys?.[0] || 'local_food';
-  return MOOD_REQUIRED_PRIMARY_CATEGORIES[primaryMood] || [];
+  const required = MOOD_REQUIRED_PRIMARY_CATEGORIES[primaryMood] || [];
+  if (startTimeContext?.isMorning) {
+    return required.filter(category => category !== 'bar');
+  }
+  return required;
 }
 
 function getOptionalRoutePreferences(source = state) {
@@ -992,15 +1002,20 @@ function getAreaRadiusM(areaConfig) {
 function getAreaConfig(routeKey, runtimeContext = {}) {
   const base = AREA_FILTERS[routeKey] || AREA_FILTERS.hongdae_yeonnam;
   const timeConfig = getTimeConfig();
-  const center = runtimeContext.center || base.center || AREA_FILTERS.hongdae_yeonnam.center;
+  const center = runtimeContext.center || base.center || null;
   const radiusM = routeKey === 'near_me'
     ? timeConfig.nearMeRadiusM
     : getAreaRadiusM(base);
   return {
     ...base,
+    label: runtimeContext.label || base.label,
+    mapLabel: runtimeContext.mapLabel || base.mapLabel,
     center,
     radiusM: runtimeContext.radiusM || radiusM,
     radiusKm: (runtimeContext.radiusM || radiusM) / 1000,
+    fallbackAreaKey: runtimeContext.fallbackAreaKey || '',
+    nearMeFallbackUsed: Boolean(runtimeContext.nearMeFallbackUsed),
+    locationError: runtimeContext.locationError || '',
   };
 }
 
@@ -1048,6 +1063,73 @@ function updateRouteLoadingMessage(message) {
   if (onboardingStep) onboardingStep.textContent = message;
 }
 
+function normalizeCoords(coords) {
+  if (!coords) return null;
+  const point = {
+    lat: Number(coords.lat),
+    lng: Number(coords.lng),
+  };
+  return hasValidCoords(point) ? point : null;
+}
+
+function setNormalAreaRuntimeState(routeKey) {
+  const areaConfig = AREA_FILTERS[routeKey] || AREA_FILTERS.hongdae_yeonnam;
+  state.locationMode = 'area';
+  state.effectiveAreaKey = routeKey;
+  state.effectiveOrigin = areaConfig.center || null;
+  state.nearMeFallbackUsed = false;
+  state.nearMeFallbackAreaKey = '';
+  state.nearMeError = '';
+  return {
+    center: areaConfig.center || null,
+    effectiveAreaKey: routeKey,
+    locationMode: 'area',
+  };
+}
+
+function setNearMeRuntimeState(coords) {
+  const normalized = normalizeCoords(coords);
+  if (!normalized) return null;
+  nearMeState.coords = normalized;
+  nearMeState.error = null;
+  state.locationMode = 'near_me';
+  state.nearMeCoords = normalized;
+  state.nearMeResolved = true;
+  state.nearMeFallbackUsed = false;
+  state.nearMeFallbackAreaKey = '';
+  state.nearMeError = '';
+  state.effectiveAreaKey = 'near_me';
+  state.effectiveOrigin = normalized;
+  return {
+    center: normalized,
+    effectiveAreaKey: 'near_me',
+    locationMode: 'near_me',
+    locationSource: 'browser_geolocation',
+  };
+}
+
+function setNearMeFallbackRuntimeState(error = null) {
+  const fallback = AREA_FILTERS[NEAR_ME_FALLBACK_AREA_KEY] || AREA_FILTERS.hongdae_yeonnam;
+  nearMeState.error = error;
+  state.locationMode = 'near_me';
+  state.nearMeResolved = false;
+  state.nearMeFallbackUsed = true;
+  state.nearMeFallbackAreaKey = NEAR_ME_FALLBACK_AREA_KEY;
+  state.nearMeError = NEAR_ME_FALLBACK_MESSAGE;
+  state.effectiveAreaKey = NEAR_ME_FALLBACK_AREA_KEY;
+  state.effectiveOrigin = fallback.center || null;
+  return {
+    center: fallback.center || null,
+    effectiveAreaKey: NEAR_ME_FALLBACK_AREA_KEY,
+    fallbackAreaKey: NEAR_ME_FALLBACK_AREA_KEY,
+    locationMode: 'near_me',
+    nearMeFallbackUsed: true,
+    locationError: NEAR_ME_FALLBACK_MESSAGE,
+    label: 'Default Seoul route',
+    mapLabel: 'Location unavailable - Hongdae fallback route',
+  };
+}
+
 function getCurrentBrowserLocation() {
   if (!navigator.geolocation) {
     return Promise.reject(new Error('Browser geolocation is unavailable.'));
@@ -1075,24 +1157,22 @@ function getCurrentBrowserLocation() {
 }
 
 async function getRouteRuntimeContext(routeKey) {
-  if (routeKey !== 'near_me') return {};
+  if (routeKey !== 'near_me') return setNormalAreaRuntimeState(routeKey);
+
+  const cachedCoords = normalizeCoords(state.nearMeCoords || nearMeState.coords);
+  if (cachedCoords) {
+    return setNearMeRuntimeState(cachedCoords);
+  }
 
   try {
     const coords = await getCurrentBrowserLocation();
-    nearMeState.coords = coords;
-    nearMeState.error = null;
+    const runtimeContext = setNearMeRuntimeState(coords);
     console.log('Miro Near me location acquired locally.');
-    return {
-      center: coords,
-      locationSource: 'browser_geolocation',
-    };
+    return runtimeContext || setNearMeFallbackRuntimeState(new Error('Invalid browser coordinates.'));
   } catch (error) {
     nearMeState.coords = null;
-    nearMeState.error = error;
-    console.warn('Miro Near me geolocation failed; using mock fallback.', error);
-    return {
-      locationError: 'Near me could not access your browser location, so this route starts from a nearby Seoul route area.',
-    };
+    console.warn('Miro Near me geolocation failed; using explicit fallback.', error);
+    return setNearMeFallbackRuntimeState(error);
   }
 }
 
@@ -1168,6 +1248,7 @@ function getMobilityAwareCandidatePool(candidates, exactMatches, context) {
 
 function getAreaCandidates(places, areaConfig) {
   const usablePlaces = places.filter(place => place.name && hasValidCoords(place));
+  if (!hasValidCoords(areaConfig.center) && !areaConfig.terms.length) return [];
   const addressMatches = usablePlaces.filter(place => addressMatchesArea(place, areaConfig));
   const nearbyMatches = usablePlaces.filter(place => (
     distanceKm(place, areaConfig.center) <= areaConfig.radiusKm
@@ -1202,17 +1283,27 @@ function sourceListMatchesMode(sourceList, mode) {
   return false;
 }
 
-function getRouteTemplate(mode, refinementInput = null, routePreferences = null) {
+function adjustMiroRouteTemplateForStartTime(template, startTimeContext = getStartTimeContext()) {
+  const slots = Array.isArray(template) ? template.slice() : [];
+  if (!startTimeContext?.isMorning) return slots;
+
+  return slots.map(category => (category === 'night' ? 'cafe' : category));
+}
+
+function getRouteTemplate(mode, refinementInput = null, routePreferences = null, startTimeContext = getStartTimeContext()) {
   if (routePreferences?.shapeSequence?.length) {
     const shapeTemplate = routePreferences.shapeSequence
       .map(category => PRIMARY_CATEGORY_TO_MIRO_CATEGORY[category])
       .filter(Boolean);
-    if (shapeTemplate.length) return shapeTemplate;
+    if (shapeTemplate.length) return adjustMiroRouteTemplateForStartTime(shapeTemplate, startTimeContext);
   }
   const keys = normalizeRefinementKeys(refinementInput);
   const priorityOrder = ['cafe', 'walk', 'quiet', 'cheap', 'local'];
   const matchKey = priorityOrder.find(key => keys.includes(key));
-  return REFINEMENT_TEMPLATES[matchKey] || ROUTE_TEMPLATES[mode] || ROUTE_TEMPLATES.balanced;
+  return adjustMiroRouteTemplateForStartTime(
+    REFINEMENT_TEMPLATES[matchKey] || ROUTE_TEMPLATES[mode] || ROUTE_TEMPLATES.balanced,
+    startTimeContext
+  );
 }
 
 function getPlaceSearchText(place) {
@@ -1401,6 +1492,7 @@ function scorePlace(place, context) {
   score += getRefinementScore(place, context);
   score += getFoodCafeQualityScore(place);
   score += getMobilityScore(place, context);
+  score += getStartTimeCategoryScore(place, context.startTimeContext);
 
   return score;
 }
@@ -1511,16 +1603,63 @@ function enforceLegacyPinnedPreferences(
   });
 }
 
-function getRouteCategorySequence(moodContext, timeConfig, routePreferences = null) {
+function adjustPrimaryCategorySequenceForStartTime(sequence, startTimeContext = getStartTimeContext()) {
+  const slots = Array.isArray(sequence) ? sequence.slice() : [];
+  if (!startTimeContext?.isMorning) return slots;
+
+  return slots.map((category, index) => {
+    if (category !== 'bar') return category;
+    if (!slots.includes('cafe')) return 'cafe';
+    if (!slots.includes('dessert_bakery')) return 'dessert_bakery';
+    return index === 0 ? 'cafe' : 'walk_nature';
+  });
+}
+
+function getStartTimeCategoryScore(place, startTimeContext = getStartTimeContext()) {
+  const primaryCategory = getPlacePrimaryCategory(place);
+  const miroCategory = String(place.miroCategory || '').trim();
+  const category = primaryCategory || MIRO_CATEGORY_TO_PRIMARY_CATEGORY[miroCategory] || '';
+  const text = getPlaceSearchText(place);
+  let score = 0;
+
+  if (startTimeContext?.isMorning) {
+    if (['cafe', 'dessert_bakery', 'walk_nature', 'landmark_view', 'shopping', 'activity', 'rest'].includes(category)) score += 14;
+    if (category === 'meal' && textHasAnyTerm(text, ['breakfast', 'brunch', '브런치', 'breakfast'])) score += 10;
+    if (category === 'bar' || miroCategory === 'night') score -= 120;
+    if (textHasAnyTerm(text, START_TIME_TEXT_TERMS.nightTerms)) score -= 30;
+    if (textHasAnyTerm(text, START_TIME_TEXT_TERMS.morningPositive)) score += 10;
+    return score;
+  }
+
+  if (startTimeContext?.isAfternoon) {
+    if (['meal', 'cafe', 'dessert_bakery', 'shopping', 'activity', 'walk_nature', 'landmark_view'].includes(category)) score += 4;
+    if (category === 'bar' || miroCategory === 'night') score -= 10;
+    if (textHasAnyTerm(text, START_TIME_TEXT_TERMS.nightTerms)) score -= 6;
+    return score;
+  }
+
+  if (startTimeContext?.isEvening) {
+    if (['meal', 'dessert_bakery', 'bar', 'landmark_view', 'cafe'].includes(category)) score += 10;
+    if (category === 'walk_nature') score += 2;
+    if (startTimeContext.isLate && ['shopping', 'activity', 'walk_nature'].includes(category)) score -= 8;
+  }
+
+  return score;
+}
+
+function getRouteCategorySequence(moodContext, timeConfig, routePreferences = null, startTimeContext = getStartTimeContext()) {
   if (routePreferences?.shapeSequence?.length) {
-    return routePreferences.shapeSequence.slice(0, timeConfig.maxStops);
+    return adjustPrimaryCategorySequenceForStartTime(
+      routePreferences.shapeSequence.slice(0, timeConfig.maxStops),
+      startTimeContext
+    );
   }
 
   const primaryMood = moodContext.compositionKeys[0] || 'local_food';
   const template = MOOD_CATEGORY_SEQUENCES[primaryMood]?.[timeConfig.key]
     || MOOD_CATEGORY_SEQUENCES.local_food[timeConfig.key]
     || ['meal', 'cafe'];
-  return template.slice(0, timeConfig.maxStops);
+  return adjustPrimaryCategorySequenceForStartTime(template.slice(0, timeConfig.maxStops), startTimeContext);
 }
 
 function deriveRefinedCategorySequence(baseSequence, refinementInput, moodContext, routePreferences = null) {
@@ -2165,6 +2304,7 @@ function scoreDataDrivenPlace(place, context) {
 
   score += getDataDrivenRefinementScore(place, context, distanceM);
   score += getDurationFitScore(place, context);
+  score += getStartTimeCategoryScore(place, context.startTimeContext);
   score -= getBacktrackingPenalty(place, context);
 
   return score;
@@ -2386,6 +2526,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementInput = null, runtimeCon
   const refinementKeys = normalizeRefinementKeys(refinementInput);
   const timeConfig = getTimeConfig(state.time);
   const moodContext = getMoodContext(mood);
+  const startTimeContext = getStartTimeContext();
   const areaConfig = getAreaConfig(routeKey, runtimeContext);
   const routePreferences = options.routePreferences || null;
   const areaCandidates = getDataDrivenCandidates(places, areaConfig, timeConfig);
@@ -2397,6 +2538,7 @@ function buildDataDrivenRoute(routeKey, mood, refinementInput = null, runtimeCon
     areaConfig,
     timeConfig,
     moodContext,
+    startTimeContext,
     refinementKeys,
     routePreferences,
     durationCapMin: getDurationSoftCapMin(timeConfig),
@@ -2445,9 +2587,9 @@ function buildDataDrivenRoute(routeKey, mood, refinementInput = null, runtimeCon
   const selected = [];
   const selectedKeys = new Set();
   const categoryCounts = {};
-  const baseSequence = getRouteCategorySequence(moodContext, timeConfig, routePreferences);
+  const baseSequence = getRouteCategorySequence(moodContext, timeConfig, routePreferences, startTimeContext);
   const sequence = deriveRefinedCategorySequence(baseSequence, refinementKeys, moodContext, routePreferences);
-  const requiredCategories = getMoodRequiredPrimaryCategories(moodContext);
+  const requiredCategories = getMoodRequiredPrimaryCategories(moodContext, startTimeContext);
 
   const limitedSequence = sequence.slice(0, timeConfig.maxStops);
   for (let stopIndex = 0; stopIndex < limitedSequence.length; stopIndex += 1) {
@@ -2625,19 +2767,23 @@ function buildCuratedRoute(routeKey, mood, refinementInput = null, runtimeContex
     return dataDrivenRoute;
   }
 
-  return buildLegacyCuratedRoute(routeKey, mood, refinementKeys, options);
+  return buildLegacyCuratedRoute(routeKey, mood, refinementKeys, runtimeContext, options);
 }
 
-function buildLegacyCuratedRoute(routeKey, mood, refinementInput = null, options = {}) {
+function buildLegacyCuratedRoute(routeKey, mood, refinementInput = null, runtimeContext = {}, options = {}) {
   const places = curatedPlaceState.places;
   if (!places.length) return null;
 
   const refinementKeys = normalizeRefinementKeys(refinementInput);
-  const areaConfig = getAreaConfig(routeKey);
+  if (routeKey === 'near_me' && !runtimeContext.center) return null;
+
+  const timeConfig = getTimeConfig(state.time);
+  const startTimeContext = getStartTimeContext();
+  const areaConfig = getAreaConfig(routeKey, runtimeContext);
   const moodContext = getMoodContext(mood);
   const mode = getRouteMode(mood);
   const routePreferences = options.routePreferences || null;
-  const template = getRouteTemplate(mode, refinementKeys, routePreferences);
+  const template = getRouteTemplate(mode, refinementKeys, routePreferences, startTimeContext);
   const candidates = filterCandidatesForRefinement(getAreaCandidates(places, areaConfig), refinementKeys);
   if (!candidates.length) return null;
 
@@ -2650,9 +2796,9 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementInput = null, options
   const selected = [];
   const selectedKeys = new Set();
   const categoryCounts = {};
-  const maxStops = Math.min(walkRefined ? 3 : 4, candidates.length);
+  const maxStops = Math.min(walkRefined ? Math.min(timeConfig.maxStops, 3) : timeConfig.maxStops, candidates.length);
   const maxWalkMinutes = getMaxWalkMinutesForRefinement(refinementKeys);
-  const requiredCategories = getMoodRequiredPrimaryCategories(moodContext);
+  const requiredCategories = getMoodRequiredPrimaryCategories(moodContext, startTimeContext);
 
   template.slice(0, maxStops).forEach(targetCategory => {
     const exactMatches = candidates.filter(place => place.miroCategory === targetCategory);
@@ -2663,6 +2809,7 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementInput = null, options
       categoryCounts,
       refinementKeys,
       routePreferences,
+      startTimeContext,
       maxWalkMinutes,
       previousPlace: selected[selected.length - 1] || null,
       previousStopIdentitySet,
@@ -2685,6 +2832,7 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementInput = null, options
       categoryCounts,
       refinementKeys,
       routePreferences,
+      startTimeContext,
       maxWalkMinutes,
       previousPlace: selected[selected.length - 1] || null,
       previousStopIdentitySet,
@@ -2705,6 +2853,7 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementInput = null, options
       categoryCounts,
       refinementKeys,
       routePreferences,
+      startTimeContext,
       maxWalkMinutes,
       previousStopIdentitySet,
       previousRouteOverlapMultiplier,
@@ -2726,6 +2875,7 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementInput = null, options
       categoryCounts,
       refinementKeys,
       routePreferences,
+      startTimeContext,
       maxWalkMinutes,
       previousStopIdentitySet,
       previousRouteOverlapMultiplier,
@@ -2742,7 +2892,6 @@ function buildLegacyCuratedRoute(routeKey, mood, refinementInput = null, options
   const stops = selected.map((place, index) => (
     placeToRouteStop(place, index, selected[index - 1], selected.length, maxWalkMinutes)
   ));
-  const timeConfig = getTimeConfig(state.time);
   const timing = applySuggestedStayPace(stops, timeConfig);
 
   return {
@@ -2871,16 +3020,29 @@ function getStopsWithCoords() {
     .filter(item => hasValidCoords(item.stop.coords));
 }
 
-function buildMockFallbackRoute(routeKey, notice = '') {
+function buildMockFallbackRoute(routeKey, notice = '', runtimeContext = {}) {
   const mockRouteKey = MOCK_ROUTE_KEY_ALIASES[routeKey] || routeKey;
   const fallback = ROUTES[mockRouteKey] || ROUTES.hongdae;
+  const timeConfig = getTimeConfig(state.time);
+  const stops = Array.isArray(fallback.stops) ? fallback.stops.slice(0, timeConfig.maxStops) : [];
+  const isNearMeFallback = routeKey === 'near_me';
+  const fallbackNotice = isNearMeFallback
+    ? uniqueStrings([notice, runtimeContext.locationError || NEAR_ME_FALLBACK_MESSAGE]).join(' ')
+    : notice;
+  if (isNearMeFallback) {
+    setNearMeFallbackRuntimeState(runtimeContext.error || null);
+  }
   console.warn('Miro route source: mock');
   return {
     ...fallback,
-    why: notice ? `${notice} ${fallback.why}` : fallback.why,
+    label: isNearMeFallback ? 'Default Seoul route' : fallback.label,
+    mapLabel: isNearMeFallback ? 'Location unavailable - Hongdae fallback route' : fallback.mapLabel,
+    center: getRouteCenter(stops) || fallback.center,
+    why: fallbackNotice ? `${fallbackNotice} ${fallback.why}` : fallback.why,
     sourceKind: 'mock',
     sourceLabel: 'Starter route',
-    fallbackNotice: notice,
+    fallbackNotice,
+    stops,
   };
 }
 
@@ -2917,17 +3079,17 @@ function resolveRouteForCurrentSelection(routeKey, refinementInput = getActiveRe
 
   if (MOCK_ROUTES_ENABLED) {
     debugRouteRecommendation('fallback_route', { routeKey, refinementKeys, reason: 'mock_mode_enabled' });
-    return buildMockFallbackRoute(routeKey, 'Using a starter route while this preview mode is active.');
+    return buildMockFallbackRoute(routeKey, 'Using a starter route while this preview mode is active.', runtimeContext);
   }
 
   if (curatedPlaceState.failed) {
     debugRouteRecommendation('fallback_route', { routeKey, refinementKeys, reason: 'local_data_load_failed' });
-    return buildMockFallbackRoute(routeKey, 'We could not confirm enough nearby matches, so this starter route keeps the plan walkable.');
+    return buildMockFallbackRoute(routeKey, 'We could not confirm enough nearby matches, so this starter route keeps the plan walkable.', runtimeContext);
   }
 
   if (!curatedPlaceState.places.length) {
     debugRouteRecommendation('fallback_route', { routeKey, refinementKeys, reason: 'no_local_places_loaded' });
-    return buildMockFallbackRoute(routeKey, 'We could not confirm enough nearby matches, so this starter route keeps the plan walkable.');
+    return buildMockFallbackRoute(routeKey, 'We could not confirm enough nearby matches, so this starter route keeps the plan walkable.', runtimeContext);
   }
 
   const notice = runtimeContext.locationError
@@ -2937,7 +3099,7 @@ function resolveRouteForCurrentSelection(routeKey, refinementInput = getActiveRe
     refinementKeys,
     reason: runtimeContext.locationError ? 'runtime_context_error' : 'not_enough_matching_places',
   });
-  return buildMockFallbackRoute(routeKey, notice);
+  return buildMockFallbackRoute(routeKey, notice, runtimeContext);
 }
 
 const AREA_KEY_BY_LABEL = Object.values(ROUTES).reduce((acc, route) => {
@@ -3058,15 +3220,23 @@ const ASK_RESPONSES = {
 
 // ========== State ==========
 const state = {
-  area: 'Hongdae',
-  time: '2 hours',
+  area: 'hongdae_yeonnam',
+  time: 'time_2_3',
   startTimePeriod: 'afternoon',
   customStartTime: '',
-  mood: 'Local food',
+  mood: 'local_food',
   shape: null,
   activeRefinements: [],
   activeStop: null,
-  routeKey: 'hongdae',
+  routeKey: 'hongdae_yeonnam',
+  locationMode: 'area',
+  nearMeCoords: null,
+  nearMeResolved: false,
+  nearMeFallbackUsed: false,
+  nearMeFallbackAreaKey: '',
+  nearMeError: '',
+  effectiveAreaKey: 'hongdae_yeonnam',
+  effectiveOrigin: AREA_FILTERS.hongdae_yeonnam.center,
 };
 
 const START_TIME_PERIOD_LABELS = {
@@ -3076,12 +3246,52 @@ const START_TIME_PERIOD_LABELS = {
   custom: 'Custom',
 };
 
+const START_TIME_TEXT_TERMS = {
+  morningPositive: ['breakfast', 'brunch', 'bakery', 'coffee', 'cafe', 'park', 'gallery', 'bookstore', 'walk', 'calm', '브런치', '베이커리', '카페', '커피', '공원', '산책', '서점', '갤러리'],
+  nightTerms: ['bar', 'pub', 'club', 'night', 'late_night', 'cocktail', 'beer', 'whiskey', 'wine', '술', '칵테일', '맥주', '와인', '클럽', '주점'],
+};
+
 function normalizeStartTimePeriod(value) {
   return START_TIME_PERIOD_LABELS[value] ? value : 'afternoon';
 }
 
 function getCustomStartTimeValue(value = state.customStartTime) {
   return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function getCustomStartTimeHour(value) {
+  const raw = getCustomStartTimeValue(value);
+  const match = raw.match(/^(\d{1,2})(?::\d{2})?\s*(AM|PM)$/i);
+  if (!match) return null;
+
+  let hour = Number(match[1]);
+  const meridiem = match[2].toUpperCase();
+  if (!Number.isFinite(hour) || hour < 1 || hour > 12) return null;
+  if (meridiem === 'AM') return hour === 12 ? 0 : hour;
+  return hour === 12 ? 12 : hour + 12;
+}
+
+function getStartTimeLogicKey(source = state) {
+  const period = normalizeStartTimePeriod(source.startTimePeriod);
+  if (period !== 'custom') return period;
+
+  const hour = getCustomStartTimeHour(source.customStartTime);
+  if (hour === null) return 'afternoon';
+  if (hour >= 5 && hour <= 10) return 'morning';
+  if (hour >= 11 && hour <= 16) return 'afternoon';
+  if (hour >= 17 && hour <= 23) return 'evening';
+  return 'late';
+}
+
+function getStartTimeContext(source = state) {
+  const key = getStartTimeLogicKey(source);
+  return {
+    key,
+    isMorning: key === 'morning',
+    isAfternoon: key === 'afternoon',
+    isEvening: key === 'evening' || key === 'late',
+    isLate: key === 'late',
+  };
 }
 
 function getStartTimeRouteCopy(source = state) {
@@ -3305,7 +3515,7 @@ document.querySelectorAll('[data-group]').forEach(row => {
     if (!btn) return;
     row.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
     btn.classList.add('selected');
-    state[row.dataset.group] = btn.dataset.value;
+    state[row.dataset.group] = getCanonicalSelectionValue(row.dataset.group, btn);
     if (row.dataset.group === 'startTimePeriod') {
       if (state.startTimePeriod !== 'custom') state.customStartTime = '';
       updateBuilderCustomStartTimeVisibility();
@@ -3323,7 +3533,7 @@ const rsSummary = document.getElementById('rs-summary');
 buildBtn.addEventListener('click', () => {
   document.querySelectorAll('#main-app .builder [data-group]').forEach(group => {
     const sel = group.querySelector('.chip.selected');
-    if (sel) state[group.dataset.group] = sel.dataset.value;
+    if (sel) state[group.dataset.group] = getCanonicalSelectionValue(group.dataset.group, sel);
   });
   syncCustomStartTimeFromBuilder();
 
@@ -3335,7 +3545,7 @@ buildBtn.addEventListener('click', () => {
   }
 
   loadingState.classList.add('active');
-  const steps = LOADING_STEPS.map(s => s.replace('{area}', state.area));
+  const steps = LOADING_STEPS.map(s => s.replace('{area}', getAreaDisplayLabel()));
   let i = 0;
   loadingStep.textContent = steps[0];
   const interval = setInterval(() => {
@@ -3374,6 +3584,35 @@ function getRouteKey(area) {
   );
 }
 
+function getAreaDisplayLabel(value = state.area) {
+  const routeKey = getRouteKey(value);
+  if (routeKey === 'near_me') return 'Near me';
+  return AREA_FILTERS[routeKey]?.label || String(value || '').trim() || 'Selected area';
+}
+
+function getMoodDisplayLabel(value = state.mood) {
+  return getMoodContext(value).labels.join(' + ');
+}
+
+function getSelectionValue(button) {
+  return button?.dataset?.internalValue || button?.dataset?.value || '';
+}
+
+function getCanonicalSelectionValue(groupKey, buttonOrValue) {
+  const rawValue = typeof buttonOrValue === 'string'
+    ? buttonOrValue
+    : getSelectionValue(buttonOrValue);
+  if (groupKey === 'area') return getRouteKey(rawValue);
+  if (groupKey === 'time') return normalizeTimeKey(rawValue);
+  if (groupKey === 'mood') return normalizeMoodKeys(rawValue)[0] || 'local_food';
+  if (groupKey === 'startTimePeriod') return normalizeStartTimePeriod(rawValue);
+  return rawValue;
+}
+
+function selectionValueMatches(groupKey, button, value) {
+  return getCanonicalSelectionValue(groupKey, button) === getCanonicalSelectionValue(groupKey, String(value || ''));
+}
+
 async function applyRouteForCurrentSelection() {
   state.routeKey = getRouteKey(state.area);
   const runtimeContext = await getRouteRuntimeContext(state.routeKey);
@@ -3409,7 +3648,13 @@ function applyResolvedRoute(route) {
 
 function updateRouteCopy() {
   const sourceLabel = currentRoute.sourceLabel;
-  rsSummary.textContent = [currentRoute.label, state.time, getStartTimeSummaryLabel(), state.mood, sourceLabel].filter(Boolean).join(' · ');
+  rsSummary.textContent = [
+    currentRoute.label,
+    getTimeConfig(state.time).label,
+    getStartTimeSummaryLabel(),
+    getMoodDisplayLabel(),
+    sourceLabel,
+  ].filter(Boolean).join(' · ');
   document.getElementById('map-location-label').textContent = currentRoute.mapLabel;
   document.getElementById('why-body').textContent = currentRoute.why;
   const whyList = document.querySelector('.ks-why-list');
@@ -5127,7 +5372,9 @@ function updateRefineSummary() {
 
 function getCurrentAreaCandidates() {
   const routeKey = getRouteKey(state.area);
-  const runtimeContext = routeKey === 'near_me' && nearMeState.coords ? { center: nearMeState.coords } : {};
+  const runtimeContext = routeKey === 'near_me' && hasValidCoords(state.effectiveOrigin)
+    ? { center: state.effectiveOrigin }
+    : {};
   return getAreaCandidates(curatedPlaceState.places, getAreaConfig(routeKey, runtimeContext));
 }
 
@@ -5276,11 +5523,21 @@ function getRouteSnapshot() {
 
   return {
     timestamp: new Date().toISOString(),
-    area: state.area,
-    time: state.time,
+    area: getAreaDisplayLabel(),
+    areaKey: getRouteKey(state.area),
+    locationMode: state.locationMode,
+    nearMeCoords: state.nearMeCoords,
+    nearMeResolved: Boolean(state.nearMeResolved),
+    nearMeFallbackUsed: Boolean(state.nearMeFallbackUsed),
+    nearMeFallbackAreaKey: state.nearMeFallbackAreaKey || '',
+    effectiveAreaKey: state.effectiveAreaKey,
+    effectiveOrigin: state.effectiveOrigin,
+    time: getTimeConfig(state.time).label,
+    timeKey: normalizeTimeKey(state.time),
     startTimePeriod: normalizeStartTimePeriod(state.startTimePeriod),
     customStartTime: getCustomStartTimeValue(state.customStartTime),
-    vibe: state.mood,
+    vibe: getMoodDisplayLabel(),
+    vibeKey: normalizeMoodKeys(state.mood)[0] || '',
     activeRefinements: getActiveRefinementKeys(),
     activeMapProvider: getActiveMapProvider(),
     summary: {
@@ -5351,7 +5608,7 @@ function buildShareText() {
 
   return [
     'Kandid Spot',
-    `${state.area} · ${state.time} · ${getStartTimeSummaryLabel()} · ${state.mood}`,
+    `${getAreaDisplayLabel()} · ${getTimeConfig(state.time).label} · ${getStartTimeSummaryLabel()} · ${getMoodDisplayLabel()}`,
     currentRoute?.mapLabel || currentRoute?.label || 'Route',
     getRefinementCount() ? `Refinements: ${getRefinementLabels().join(', ')}` : '',
     stopLines,
@@ -5883,11 +6140,11 @@ const onboarding = {
         if (!btn) return;
         group.querySelectorAll('.ob-option').forEach(o => o.classList.remove('selected'));
         btn.classList.add('selected');
-        this.selections[groupKey] = btn.dataset.value;
+        this.selections[groupKey] = getCanonicalSelectionValue(groupKey, btn);
         if (groupKey === 'startTimePeriod') {
-          if (btn.dataset.value !== 'custom') this.selections.customStartTime = '';
+          if (this.selections.startTimePeriod !== 'custom') this.selections.customStartTime = '';
           this.updateCustomStartTimeVisibility();
-          if (btn.dataset.value === 'custom') this.customStartTimeInput?.focus();
+          if (this.selections.startTimePeriod === 'custom') this.customStartTimeInput?.focus();
         }
         this.updateNextEnabled();
       });
@@ -6072,7 +6329,7 @@ const onboarding = {
     this.loadingEl.classList.add('active');
     this.loadingEl.setAttribute('aria-hidden', 'false');
 
-    const stepsForArea = OB_LOADING_STEPS.map(s => s.replace('{area}', this.selections.area));
+    const stepsForArea = OB_LOADING_STEPS.map(s => s.replace('{area}', getAreaDisplayLabel(this.selections.area)));
     let i = 0;
     this.loadingStepEl.textContent = stepsForArea[0];
     const interval = setInterval(() => {
@@ -6117,7 +6374,7 @@ const onboarding = {
         const group = this.el.querySelector(`.ob-options[data-group="${key}"]`);
         if (group) {
           group.querySelectorAll('.ob-option').forEach(o => {
-            o.classList.toggle('selected', o.dataset.value === value);
+            o.classList.toggle('selected', selectionValueMatches(key, o, value));
           });
           this.selections[key] = value;
         }
@@ -6148,7 +6405,7 @@ function syncBuilderChips() {
     if (!group) return;
     const value = key === 'startTimePeriod' ? normalizeStartTimePeriod(state[key]) : state[key];
     group.querySelectorAll('.chip').forEach(c => {
-      c.classList.toggle('selected', c.dataset.value === value);
+      c.classList.toggle('selected', selectionValueMatches(key, c, value));
     });
   });
   if (builderCustomStartTimeInput) {
