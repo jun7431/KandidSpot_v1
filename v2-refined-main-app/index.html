@@ -351,7 +351,7 @@
     <div class="brand">
       <span class="brand-mark"><span class="brand-dot"></span></span>
       <span class="brand-name">Kandid Spot</span>
-      <span class="brand-tag">One local route you can start now</span>
+      <span class="brand-tag">One local route for your time window</span>
     </div>
     <div class="top-right">
       <button class="ghost-btn ghost-btn-accent" id="new-btn" title="Start a new route">
@@ -565,7 +565,7 @@
             <button class="refine-chip" data-refine="cheap">💸 Cheaper</button>
             <button class="refine-chip" data-refine="cafe">☕ More cafes</button>
             <button class="refine-chip" data-refine="quiet">🤫 Avoid crowds</button>
-            <button class="refine-chip" data-refine="open">🟢 Open now only</button>
+            <button class="refine-chip" data-refine="open">🟢 Verified hours only</button>
           </div>
           <p class="refine-summary" id="refine-summary" hidden></p>
         </div>
@@ -664,7 +664,7 @@
 
       <div class="ask-thread" id="ask-thread">
         <div class="ask-msg from-miro">
-          <div class="ask-bubble">Ask Kandid Spot about this route. Preview answers use the current route and do not check live hours yet.</div>
+          <div class="ask-bubble">Ask Kandid Spot about this route. Preview answers use the current route and do not verify current opening hours yet.</div>
         </div>
         <div class="ask-suggest-head">Try one of these</div>
         <div class="ask-suggestions" id="ask-suggestions">
@@ -673,7 +673,7 @@
           <button class="ask-suggest" data-q="time">Can I do this in 90 minutes?</button>
           <button class="ask-suggest" data-q="cafe">More cafes, less walking</button>
           <button class="ask-suggest" data-q="cheap">Make it cheaper</button>
-          <button class="ask-suggest" data-q="open">What's open right now?</button>
+          <button class="ask-suggest" data-q="open">How should I check hours?</button>
         </div>
       </div>
 
@@ -862,6 +862,15 @@
 
 <script src="/api/kakao-config"></script>
 <script src="/api/naver-config"></script>
+<script src="/v2-refined-main-app/recommendation/weights.js"></script>
+<script src="/v2-refined-main-app/recommendation/normalizeRequest.js"></script>
+<script src="/v2-refined-main-app/recommendation/candidateGeneration.js"></script>
+<script src="/v2-refined-main-app/recommendation/routeTemplates.js"></script>
+<script src="/v2-refined-main-app/recommendation/scorePlace.js"></script>
+<script src="/v2-refined-main-app/recommendation/scoreRoute.js"></script>
+<script src="/v2-refined-main-app/recommendation/rerankRoutes.js"></script>
+<script src="/v2-refined-main-app/recommendation/explainRoute.js"></script>
+<script src="/v2-refined-main-app/recommendation/beamSearch.js"></script>
 <script src="/v2-refined-main-app/routeEngine.js"></script>
 <script src="/v2-refined-main-app/app.js"></script>
 </body>

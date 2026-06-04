@@ -20,9 +20,9 @@ const REFINE_TEXTS = {
   cafe: { applied: 'Refined toward more cafe stops.', undo: 'Removed the cafe-forward refinement.' },
   quiet: { applied: 'Refined toward quieter and less tourist-heavy stops.', undo: 'Removed the quiet-route refinement.' },
   open: {
-    applied: 'Refined to places marked open now.',
-    undo: 'Removed the open-now refinement.',
-    unavailable: 'Open-now data is not available for these saved places yet.',
+    applied: 'Refined toward places with verified opening-hours data.',
+    undo: 'Removed the hours-aware refinement.',
+    unavailable: 'Opening-hours data is not available for these saved places yet.',
   },
 };
 
@@ -42,7 +42,7 @@ const ASK_RESPONSES = {
   open: route => {
     const names = (route?.stops || []).map(stop => stop.name).slice(0, 2).filter(Boolean);
     const verifyText = names.length ? ` Verify ${names.join(' and ')} in the map links before going.` : '';
-    return `I am not checking live hours yet.${verifyText}`;
+    return `I am not verifying current opening hours yet.${verifyText}`;
   },
 };
 
@@ -157,7 +157,7 @@ const REFINEMENT_LABELS = {
   cheap: 'Cheaper',
   cafe: 'More cafes',
   quiet: 'Avoid crowds',
-  open: 'Open now only',
+  open: 'Verified hours only',
 };
 
 function normalizeRefinementKeys(value) {
@@ -441,11 +441,51 @@ function selectionValueMatches(groupKey, button, value) {
   return getCanonicalSelectionValue(groupKey, button) === getCanonicalSelectionValue(groupKey, String(value || ''));
 }
 
+const engineBuildRouteForInputs = typeof window.KSRouteEngine?.buildRouteForInputs === 'function'
+  ? window.KSRouteEngine.buildRouteForInputs
+  : window.buildRouteForInputs;
+
+function buildRouteForInputs(input = {}) {
+  const source = input || {};
+  const explicitAreaKey = getRouteKey(source.areaKey || source.area || state.area);
+  const explicitTimeKey = normalizeTimeKey(source.timeKey || source.time || state.time);
+  const explicitMoodKey = normalizeMoodKeys(source.moodKey || source.mood || state.mood)[0] || 'local_food';
+  const explicitRawStartTime = source.startTime && typeof source.startTime === 'object' ? source.startTime : {};
+  const explicitStartTime = {
+    period: normalizeStartTimePeriod(explicitRawStartTime.period || source.startTimePeriod || state.startTimePeriod),
+    customStartTime: getCustomStartTimeValue(
+      explicitRawStartTime.customStartTime ?? source.customStartTime ?? state.customStartTime
+    ),
+  };
+  const explicitRefinements = normalizeRefinementKeys(
+    source.refinements ?? source.refinementInput ?? getActiveRefinementKeys()
+  );
+  const explicitCoords = normalizeCoords(source.coords);
+  const explicitPlaces = Array.isArray(source.places) ? source.places : curatedPlaceState.places;
+  const explicitPreviousRoute = source.previousRoute || null;
+
+  if (typeof engineBuildRouteForInputs !== 'function') {
+    return null;
+  }
+
+  return engineBuildRouteForInputs({
+    ...source,
+    areaKey: explicitAreaKey,
+    timeKey: explicitTimeKey,
+    moodKey: explicitMoodKey,
+    startTime: explicitStartTime,
+    refinements: explicitRefinements,
+    coords: explicitCoords,
+    places: explicitPlaces,
+    previousRoute: explicitPreviousRoute,
+  });
+}
+
 async function applyRouteForCurrentSelection() {
   state.routeKey = getRouteKey(state.area);
   const runtimeContext = await getRouteRuntimeContext(state.routeKey);
   const routePreferences = getOptionalRoutePreferences();
-  const routeInput = normalizeRouteBuildInput({
+  const routeInput = {
     areaKey: state.routeKey,
     timeKey: state.time,
     moodKey: state.mood,
@@ -459,7 +499,7 @@ async function applyRouteForCurrentSelection() {
     previousRoute: null,
     runtimeContext,
     routePreferences,
-  });
+  };
   applyResolvedRoute(buildRouteForInputs(routeInput));
 }
 
@@ -2245,7 +2285,7 @@ function applyRefinement(key) {
     const runtimeContext = await getRouteRuntimeContext(routeKey);
     const routePreferences = getOptionalRoutePreferences();
     const previousRoute = currentRoute;
-    const routeInput = normalizeRouteBuildInput({
+    const routeInput = {
       areaKey: routeKey,
       timeKey: state.time,
       moodKey: state.mood,
@@ -2258,7 +2298,7 @@ function applyRefinement(key) {
       previousRoute,
       runtimeContext,
       routePreferences,
-    });
+    };
 
     if (!nextActive.length) {
       state.activeRefinements = [];
@@ -2961,7 +3001,7 @@ const OB_LOADING_STEPS = [
   'Checking walking time',
   'Matching your mood',
   'Avoiding obvious tourist traps',
-  'Finding a route you can start now',
+  'Finding a route that fits your time window',
 ];
 
 const OB_REQUIRED_LAST_STEP = 3;

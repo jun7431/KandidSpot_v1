@@ -361,6 +361,15 @@ const SUBCATEGORIZED_PLACES_URL = '/v2-refined-main-app/data/places/processed/mi
 const CURATED_PLACES_URL = '/v2-refined-main-app/data/miro_places.json';
 const MOCK_ROUTES_ENABLED = new URLSearchParams(window.location.search).get('mock') === '1';
 const ROUTE_DEBUG_ENABLED = new URLSearchParams(window.location.search).get('route_debug') === '1';
+const BEAM_SEARCH_ENABLED = new URLSearchParams(window.location.search).get('beam') !== '0';
+const BEAM_SEARCH_WIDTH = Math.max(
+  8,
+  Math.min(20, Number(new URLSearchParams(window.location.search).get('beam_width')) || 12)
+);
+
+function getRecommendationModule(name) {
+  return window.KSRecommendation && window.KSRecommendation[name];
+}
 
 const AREA_FILTERS = {
   myeongdong_euljiro: {
@@ -1421,6 +1430,12 @@ function hasOpenNowDataForCandidates(candidates) {
 function filterCandidatesForRefinement(candidates, refinementInput) {
   const keys = normalizeRefinementKeys(refinementInput);
   if (!keys.includes('open')) return candidates;
+  const candidateModule = getRecommendationModule('candidateGeneration');
+  if (candidateModule?.filterCandidatesForOpenNow) {
+    return candidateModule.filterCandidatesForOpenNow(candidates, keys, {
+      fieldPaths: OPEN_NOW_FIELD_PATHS,
+    }).candidates;
+  }
   const withData = candidates.filter(place => getOpenNowValue(place) !== null);
   const dataCoverageFloor = Math.max(2, Math.floor(candidates.length * 0.3));
   if (withData.length < dataCoverageFloor) return candidates;
@@ -1722,6 +1737,16 @@ function getStartTimeCategoryScore(place, startTimeContext = getStartTimeContext
 }
 
 function getRouteCategorySequence(moodContext, timeConfig, routePreferences = null, startTimeContext = getStartTimeContext()) {
+  const templateModule = getRecommendationModule('routeTemplates');
+  if (templateModule?.getRouteCategorySequence) {
+    return templateModule.getRouteCategorySequence({
+      moodContext,
+      timeConfig,
+      routePreferences,
+      startTimeContext,
+    });
+  }
+
   if (routePreferences?.shapeSequence?.length) {
     return adjustPrimaryCategorySequenceForStartTime(
       routePreferences.shapeSequence.slice(0, timeConfig.maxStops),
@@ -1737,6 +1762,16 @@ function getRouteCategorySequence(moodContext, timeConfig, routePreferences = nu
 }
 
 function deriveRefinedCategorySequence(baseSequence, refinementInput, moodContext, routePreferences = null) {
+  const templateModule = getRecommendationModule('routeTemplates');
+  if (templateModule?.deriveRefinedCategorySequence) {
+    return templateModule.deriveRefinedCategorySequence({
+      baseSequence,
+      refinements: refinementInput,
+      moodContext,
+      routePreferences,
+    });
+  }
+
   const keys = normalizeRefinementKeys(refinementInput);
   if (!keys.length || routePreferences?.shapeSequence?.length) return baseSequence;
   if (!Array.isArray(baseSequence) || !baseSequence.length) return baseSequence;
@@ -2298,6 +2333,18 @@ function debugRouteRecommendation(event, details = {}) {
 }
 
 function getDataDrivenCandidates(places, areaConfig, timeConfig, moodContext = null) {
+  const candidateModule = getRecommendationModule('candidateGeneration');
+  if (candidateModule?.generateDataDrivenCandidates) {
+    return candidateModule.generateDataDrivenCandidates(places, {
+      areaConfig,
+      timeConfig,
+      moodContext,
+      nearestCandidateLimit: NEAR_ME_NEAREST_CANDIDATE_LIMIT,
+      getRuntimePlaceKey,
+      placeMatchesMoodCandidate,
+    }).candidates;
+  }
+
   const usablePlaces = places.filter(place => (
     place.name
     && hasValidCoords(place)
@@ -2358,6 +2405,23 @@ function getDataDrivenCandidates(places, areaConfig, timeConfig, moodContext = n
 }
 
 function scoreDataDrivenPlace(place, context) {
+  const scoreModule = getRecommendationModule('scorePlace');
+  if (scoreModule?.scorePlace) {
+    return scoreModule.scorePlace(place, context, {
+      getAreaRadiusM,
+      getPlaceDistanceM,
+      getRoutePreferenceScore,
+      getPlaceStayMinutes,
+      classifyLegMobility,
+      getDurationFitScore,
+      getStartTimeCategoryScore,
+      getBacktrackingPenalty,
+      getPreviousOverlapPenalty,
+      getOpenNowValue,
+      getPlaceSearchText,
+    }).score;
+  }
+
   if (!hasValidCoords(place) || place.available === false) return -Infinity;
 
   const distanceM = Number(place.__distanceM ?? getPlaceDistanceM(place, context.areaConfig.center));
@@ -2625,6 +2689,69 @@ function dataPlaceToRouteStop(place, index, previousPlace, totalStops, context) 
   };
 }
 
+function buildDataDrivenRouteResult(orderedPlaces, context, beamRoute = null) {
+  const { routeKey, mood, refinementKeys, areaConfig, timeConfig, moodContext, routePreferences } = context;
+  const routeContext = { areaConfig, timeConfig, moodContext };
+  const stops = orderedPlaces.map((place, index) => (
+    dataPlaceToRouteStop(place, index, orderedPlaces[index - 1], orderedPlaces.length, routeContext)
+  ));
+  const timing = applySuggestedStayPace(stops, timeConfig);
+  const distanceMeters = stops.reduce((sum, stop) => sum + Number(stop.legDistanceMeters || 0), 0);
+  let why = appendRoutePreferenceExplanation(
+    buildRouteWhyCopy(areaConfig.label, timeConfig, moodContext, stops, timing, refinementKeys),
+    routePreferences
+  );
+  const ask = {
+    why: `This ${getRouteStructureLabel(stops.length)} is tuned for ${areaConfig.label}, ${timeConfig.label}, and ${moodContext.labels.join(' + ')}.`,
+    crowd: 'I do not check live crowd levels yet, but this route favors closer stops and avoids making you bounce across the neighborhood.',
+    cafe: 'I can lean the route toward cafe and dessert stops when nearby options fit your area and time.',
+  };
+
+  const explainModule = getRecommendationModule('explainRoute');
+  if (beamRoute && explainModule?.explainRoute) {
+    const explanation = explainModule.explainRoute({
+      places: orderedPlaces,
+      placeScores: beamRoute.placeScores,
+      routeScoreBreakdown: beamRoute.routeScoreBreakdown,
+      context: {
+        areaLabel: areaConfig.label,
+        timeLabel: timeConfig.label,
+        moodLabels: moodContext.labels,
+        refinementKeys,
+        routePreferences,
+        durationHardMaxMin: beamRoute.durationHardMaxMin,
+      },
+    });
+    if (explanation?.why) {
+      why = appendRoutePreferenceExplanation(explanation.why, routePreferences);
+    }
+    ['why', 'crowd', 'cafe'].forEach(key => {
+      if (explanation?.ask?.[key]) ask[key] = explanation.ask[key];
+    });
+  }
+
+  return {
+    label: areaConfig.label,
+    mapLabel: areaConfig.mapLabel,
+    center: getRouteCenter(stops) || areaConfig.center,
+    defaultMood: moodContext.labels.join(' + '),
+    meta: {
+      total: formatMinutes(timing.displayTotalMinutes),
+      walking: `${timing.walkingMinutes} min`,
+      distance: formatDistanceMeters(distanceMeters),
+      totalLabel: timing.totalLabel,
+      timeNote: timing.adjusted ? timing.note : '',
+    },
+    why,
+    ask,
+    sourceKind: 'local_dataset',
+    sourceLabel: 'Walkable route',
+    mode: getRouteMode(mood),
+    refinementKeys,
+    stops,
+  };
+}
+
 function buildDataDrivenRoute(routeKey, mood, refinementInput = null, runtimeContext = {}, options = {}) {
   const places = curatedPlaceState.places;
   if (!places.some(place => place.primaryCategory)) return null;
@@ -2667,9 +2794,15 @@ function buildDataDrivenRoute(routeKey, mood, refinementInput = null, runtimeCon
       selectedEstimate: { stay: 0, travel: 0, total: 0 },
     }) }))
     .filter(item => Number.isFinite(item.score) && item.score > 0)
-    .sort((left, right) => right.score - left.score)
+    .sort((left, right) => {
+      if (right.score !== left.score) return right.score - left.score;
+      return getRuntimePlaceKey(left.place).localeCompare(getRuntimePlaceKey(right.place));
+    })
     .map(item => item.place);
   const uxMinStops = getUxSafeMinimumStopCount(timeConfig, scoredCandidates.length);
+  const baseSequence = getRouteCategorySequence(moodContext, timeConfig, routePreferences, startTimeContext);
+  const sequence = deriveRefinedCategorySequence(baseSequence, refinementKeys, moodContext, routePreferences);
+  const requiredCategories = getMoodRequiredPrimaryCategories(moodContext, startTimeContext);
 
   debugRouteRecommendation('data_driven_candidates', {
     placesLoaded: places.length,
@@ -2695,12 +2828,88 @@ function buildDataDrivenRoute(routeKey, mood, refinementInput = null, runtimeCon
     return null;
   }
 
+  if (BEAM_SEARCH_ENABLED) {
+    const beamModule = getRecommendationModule('beamSearch');
+    if (beamModule?.runBeamSearch) {
+      const beamResult = beamModule.runBeamSearch({
+        candidates: scoredCandidates,
+        areaConfig,
+        timeConfig,
+        moodContext,
+        startTimeContext,
+        refinementKeys,
+        routePreferences,
+        sequence,
+        requiredCategories,
+        minimumStops: Math.min(uxMinStops, scoredCandidates.length),
+        maxStops: timeConfig.maxStops,
+        durationHardMaxMin: baseContext.durationCapMin,
+        defaultMaxWalkMinutes: DEFAULT_MAX_WALK_MINUTES,
+        lessWalkingMaxWalkMinutes: LESS_WALKING_MAX_WALK_MINUTES,
+        beamWidth: options.beamWidth || BEAM_SEARCH_WIDTH,
+        baseContext,
+      }, {
+        scorePlace: getRecommendationModule('scorePlace')?.scorePlace,
+        scoreRoute: getRecommendationModule('scoreRoute')?.scoreRoute,
+        rerankRoutes: getRecommendationModule('rerankRoutes')?.rerankRoutes,
+        getRuntimePlaceKey,
+        getPlaceStayMinutes,
+        classifyLegMobility,
+        getPlacePrimaryCategory,
+        placeScoreDeps: {
+          getAreaRadiusM,
+          getPlaceDistanceM,
+          getRoutePreferenceScore,
+          getPlaceStayMinutes,
+          classifyLegMobility,
+          getDurationFitScore,
+          getStartTimeCategoryScore,
+          getBacktrackingPenalty,
+          getPreviousOverlapPenalty,
+          getOpenNowValue,
+          getPlaceSearchText,
+        },
+      });
+
+      if (beamResult?.route?.places?.length) {
+        debugRouteRecommendation('beam_search_succeeded', {
+          routeKey,
+          refinementKeys,
+          beamWidth: beamResult.beamWidth,
+          routeCount: beamResult.routes?.length || 0,
+          selectedCategories: beamResult.route.places.map(place => place.primaryCategory),
+          routeScore: beamResult.route.routeScore,
+          rerankScore: beamResult.route.rerankScore,
+          estimatedTotalMinutes: beamResult.route.estimate?.total,
+          walkingMinutes: beamResult.route.estimate?.walkingMinutes,
+        });
+        return buildDataDrivenRouteResult(
+          beamResult.route.places.slice(0, timeConfig.maxStops),
+          { routeKey, mood, refinementKeys, areaConfig, timeConfig, moodContext, routePreferences },
+          { ...beamResult.route, durationHardMaxMin: baseContext.durationCapMin }
+        );
+      }
+
+      debugRouteRecommendation('beam_search_failed', {
+        routeKey,
+        refinementKeys,
+        reason: beamResult?.reason || 'no_route_returned',
+        failures: beamResult?.failures || {},
+        fallback: 'greedy_data_driven',
+      });
+    } else {
+      debugRouteRecommendation('beam_search_failed', {
+        routeKey,
+        refinementKeys,
+        reason: 'module_unavailable',
+        fallback: 'greedy_data_driven',
+      });
+    }
+  }
+
   const selected = [];
   const selectedKeys = new Set();
   const categoryCounts = {};
-  const baseSequence = getRouteCategorySequence(moodContext, timeConfig, routePreferences, startTimeContext);
-  const sequence = deriveRefinedCategorySequence(baseSequence, refinementKeys, moodContext, routePreferences);
-  const requiredCategories = getMoodRequiredPrimaryCategories(moodContext, startTimeContext);
 
   const limitedSequence = sequence.slice(0, timeConfig.maxStops);
   for (let stopIndex = 0; stopIndex < limitedSequence.length; stopIndex += 1) {
@@ -2820,12 +3029,10 @@ function buildDataDrivenRoute(routeKey, mood, refinementInput = null, runtimeCon
   const orderedPlaces = routePreferences?.shapeSequence?.length
     ? selected.slice(0, timeConfig.maxStops)
     : orderPlacesNearestNeighbor(selected.slice(0, timeConfig.maxStops), areaConfig.center);
-  const routeContext = { areaConfig, timeConfig, moodContext };
-  const stops = orderedPlaces.map((place, index) => (
-    dataPlaceToRouteStop(place, index, orderedPlaces[index - 1], orderedPlaces.length, routeContext)
+  const previewStops = orderedPlaces.map((place, index) => (
+    dataPlaceToRouteStop(place, index, orderedPlaces[index - 1], orderedPlaces.length, { areaConfig, timeConfig, moodContext })
   ));
-  const timing = applySuggestedStayPace(stops, timeConfig);
-  const distanceMeters = stops.reduce((sum, stop) => sum + Number(stop.legDistanceMeters || 0), 0);
+  const previewTiming = applySuggestedStayPace(previewStops, timeConfig);
 
   debugRouteRecommendation('data_driven_succeeded', {
     routeKey,
@@ -2833,41 +3040,18 @@ function buildDataDrivenRoute(routeKey, mood, refinementInput = null, runtimeCon
     area: areaConfig.label,
     time: timeConfig.key,
     selectedCategories: orderedPlaces.map(place => place.primaryCategory),
-    stopCount: stops.length,
+    stopCount: previewStops.length,
     uxMinStops,
     durationCapMin: baseContext.durationCapMin,
-    estimatedTotalMinutes: timing.rawTotalMinutes,
-    displayedTotalMinutes: timing.displayTotalMinutes,
-    walkingMinutes: timing.walkingMinutes,
+    estimatedTotalMinutes: previewTiming.rawTotalMinutes,
+    displayedTotalMinutes: previewTiming.displayTotalMinutes,
+    walkingMinutes: previewTiming.walkingMinutes,
   });
 
-  return {
-    label: areaConfig.label,
-    mapLabel: areaConfig.mapLabel,
-    center: getRouteCenter(stops) || areaConfig.center,
-    defaultMood: moodContext.labels.join(' + '),
-    meta: {
-      total: formatMinutes(timing.displayTotalMinutes),
-      walking: `${timing.walkingMinutes} min`,
-      distance: formatDistanceMeters(distanceMeters),
-      totalLabel: timing.totalLabel,
-      timeNote: timing.adjusted ? timing.note : '',
-    },
-    why: appendRoutePreferenceExplanation(
-      buildRouteWhyCopy(areaConfig.label, timeConfig, moodContext, stops, timing, refinementKeys),
-      routePreferences
-    ),
-    ask: {
-      why: `This ${getRouteStructureLabel(stops.length)} is tuned for ${areaConfig.label}, ${timeConfig.label}, and ${moodContext.labels.join(' + ')}.`,
-      crowd: 'I do not check live crowd levels yet, but this route favors closer stops and avoids making you bounce across the neighborhood.',
-      cafe: 'I can lean the route toward cafe and dessert stops when nearby options fit your area and time.',
-    },
-    sourceKind: 'local_dataset',
-    sourceLabel: 'Walkable route',
-    mode: getRouteMode(mood),
-    refinementKeys,
-    stops,
-  };
+  return buildDataDrivenRouteResult(
+    orderedPlaces,
+    { routeKey, mood, refinementKeys, areaConfig, timeConfig, moodContext, routePreferences }
+  );
 }
 
 function buildCuratedRoute(routeKey, mood, refinementInput = null, runtimeContext = {}, options = {}) {
@@ -3233,6 +3417,30 @@ function resolveRouteForCurrentSelection(routeKey, refinementInput = getActiveRe
 }
 
 function normalizeRouteBuildInput(input = {}) {
+  const normalizeModule = getRecommendationModule('normalizeRequest');
+  if (normalizeModule?.normalizeRequest) {
+    return normalizeModule.normalizeRequest(input, {
+      defaults: {
+        areaKey: state.area,
+        timeKey: state.time,
+        moodKey: state.mood,
+        startTimePeriod: state.startTimePeriod,
+        customStartTime: state.customStartTime,
+        places: curatedPlaceState.places,
+        activeRefinements: getActiveRefinementKeys(),
+      },
+      areaCenters: Object.fromEntries(Object.entries(AREA_FILTERS).map(([key, area]) => [key, area.center])),
+      cachedNearMeCoords: getCachedNearMeCoords(),
+      normalizeAreaKey: getRouteKey,
+      normalizeTimeKey,
+      normalizeMoodKeys,
+      normalizeStartTimePeriod,
+      getCustomStartTimeValue,
+      normalizeCoords,
+      normalizeRefinementKeys,
+    });
+  }
+
   const rawStartTime = input.startTime && typeof input.startTime === 'object'
     ? input.startTime
     : {};
